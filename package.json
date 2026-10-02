@@ -1,0 +1,38 @@
+{
+  "name": "mdmap",
+  "version": "1.0.0",
+  "description": "Obsidian plugin: edit a note's headings and list items as a mind map that writes back to the note.",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "dev": "rollup --config rollup.config.js -w",
+    "build": "rollup --config rollup.config.js",
+    "test": "mocha -r ts-node/register tests/**/*.test.ts"
+  },
+  "author": "daniel",
+  "license": "MIT",
+  "dependencies": {
+    "@xyflow/react": "^12.12.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^15.1.0",
+    "@rollup/plugin-node-resolve": "^9.0.0",
+    "@rollup/plugin-replace": "^5.0.7",
+    "@rollup/plugin-typescript": "^8.5.0",
+    "@types/chai": "^4.2.14",
+    "@types/mocha": "^8.0.4",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "chai": "^4.2.0",
+    "mocha": "^8.2.0",
+    "obsidian": "latest",
+    "puppeteer-core": "^24.0.0",
+    "rollup": "^2.33.3",
+    "rollup-plugin-copy": "^3.3.0",
+    "ts-node": "^9.0.0",
+    "tslib": "^2.0.3",
+    "typescript": "^5.9.3"
+  }
+}

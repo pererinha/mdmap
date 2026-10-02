@@ -1,0 +1,9 @@
+{
+  "id": "mdmap",
+  "name": "mdmap",
+  "version": "1.0.0",
+  "minAppVersion": "1.8.9",
+  "description": "Edit the headings and list items of the current note as a mind map that writes back to the note, and copy the note as a Mermaid mindmap.",
+  "author": "daniel",
+  "isDesktopOnly": false
+}
