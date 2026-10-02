@@ -90,6 +90,37 @@
 .markdown-source-view .cm-line.mdmap-revealed {
     background-color: var(--text-highlight-bg);
 }
+/* Copy button on a node's top-right corner, shown on hover and on the selected node. */
+.mdmap-copy {
+    position: absolute;
+    top: -11px;
+    right: -11px;
+    width: 22px;
+    height: 22px;
+    min-height: 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid var(--background-modifier-border);
+    background: var(--background-primary);
+    color: var(--text-muted);
+    box-shadow: var(--shadow-s);
+    cursor: pointer;
+    visibility: hidden;
+}
+.mdmap-copy svg {
+    width: 13px;
+    height: 13px;
+}
+.react-flow__node:hover .mdmap-copy,
+.react-flow__node.selected .mdmap-copy {
+    visibility: visible;
+}
+.mdmap-copy:hover {
+    color: var(--text-normal);
+}
 .mdmap-handle {
     opacity: 0;
     pointer-events: none;

@@ -1,4 +1,4 @@
-import { ItemView, MarkdownView, Menu, TFile, WorkspaceLeaf } from 'obsidian';
+import { ItemView, MarkdownView, Menu, Notice, TFile, WorkspaceLeaf } from 'obsidian';
 import { createRoot, Root } from 'react-dom/client';
 import reactFlowCss from '@xyflow/react/dist/style.css';
 import { EditorSync, injectCss, whenSized } from './editor-sync';
@@ -122,9 +122,16 @@ export default class EditorView extends ItemView {
                 resolveMedia={link => this.resolveMedia(link)}
                 onOpenMedia={link => this.app.workspace.openLinkText(link, this.filePath, true)}
                 onClickNode={id => this.reveal(id)}
+                onCopyNode={id => this.copyNode(id)}
             />,
         );
         this.sync.watch();
+    }
+
+    /** Puts the node and everything under it on the clipboard, as Markdown from the note. */
+    private async copyNode(id: string) {
+        await navigator.clipboard.writeText(this.sync.markdownOf(id));
+        new Notice('Copied as Markdown');
     }
 
     /** Vault embeds resolve through the metadata cache; http(s) links are used as they are. */

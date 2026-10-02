@@ -26,6 +26,7 @@ import {
     useReactFlow,
 } from '@xyflow/react';
 import type { Edge, Node, NodeProps, OnNodeDrag, OnSelectionChangeFunc, ReactFlowInstance } from '@xyflow/react';
+import { setIcon } from 'obsidian';
 import { PlainNode, XY } from './md-tree';
 import { Facing, Layout, MdNodeData, NODE_TYPE, layoutTree } from './tree-layout';
 import { addChild, addSiblingAfter, isDescendant, moveInto, moveSibling, remove, rename } from './tree-ops';
@@ -56,12 +57,15 @@ interface MapEditorProps {
     onOpenMedia?(link: string): void;
     /** A click on a node, or null for a click on empty canvas. */
     onClickNode?(id: string | null): void;
+    /** The copy button on a node: the node and everything under it as Markdown. */
+    onCopyNode?(id: string): void;
 }
 
 interface EditorNodeData extends MdNodeData {
     editing: boolean;
     resolved: Array<ResolvedMedia & { link: string }>;
     onOpenMedia?(link: string): void;
+    onCopy?(id: string): void;
     onCommit(id: string, title: string): void;
     onCancel(): void;
 }
@@ -88,6 +92,7 @@ function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
         </span>
     ));
     return (
+        <>
         <div className={classes} style={style} title={data.text ?? data.title}>
             {handles}
             {data.editing ? (
@@ -139,6 +144,24 @@ function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
                 </>
             )}
         </div>
+        {data.onCopy && !data.editing && (
+            // Shown on hover and on the selected node; `nodrag` keeps a press on it from dragging the node.
+            <button
+                className="mdmap-copy nodrag"
+                aria-label="Copy as Markdown"
+                ref={el => {
+                    if (el && !el.firstChild) {
+                        setIcon(el, 'copy');
+                    }
+                }}
+                onClick={e => {
+                    e.stopPropagation();
+                    data.onCopy!(id);
+                }}
+                onDoubleClick={e => e.stopPropagation()}
+            />
+        )}
+        </>
     );
 }
 
@@ -161,7 +184,7 @@ const ORGANIZERS: Array<{ layout: Layout; label: string }> = [
     { layout: 'radial', label: 'Radial' },
 ];
 
-function Editor({ root: initialRoot, positions: initialPositions, onChange, onReady, resolveMedia, onOpenMedia, onClickNode }: MapEditorProps) {
+function Editor({ root: initialRoot, positions: initialPositions, onChange, onReady, resolveMedia, onOpenMedia, onClickNode, onCopyNode }: MapEditorProps) {
     const flow = useReactFlow<EditorNode>();
     const rootRef = useRef(initialRoot);
     const positionsRef = useRef<Record<string, XY>>(initialPositions ?? {});
@@ -197,6 +220,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                         onCommit,
                         onCancel,
                         onOpenMedia,
+                        onCopy: onCopyNode,
                         resolved: (node.data.media ?? [])
                             .map(link => ({ link, resolved: resolveMedia?.(link) ?? null }))
                             .filter(item => item.resolved !== null)
@@ -206,7 +230,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 edges: laid.edges,
             };
         },
-        [resolveMedia, onOpenMedia],
+        [resolveMedia, onOpenMedia, onCopyNode],
     );
 
     const render = useCallback(

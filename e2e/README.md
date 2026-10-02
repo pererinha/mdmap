@@ -35,6 +35,7 @@ node e2e/organize.js   # organizer buttons on story.md: transition sampled over 
 node e2e/reveal.js     # clicking a node highlights its line in the note; the gear in the view header turns it off
 node e2e/trackpad.js   # two-finger scroll pans one to one, pinch zooms around the fingers, the window does not zoom
 node e2e/paragraphs.js # paragraphs as text blocks, a list hanging from the paragraph before it, Tab and undo on it
+node e2e/copy.js       # the copy icon on a node puts its Markdown section on the clipboard (saved and restored)
 ```
 
 The scenarios create, rewrite and delete notes, so they stop unless the

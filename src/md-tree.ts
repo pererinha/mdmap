@@ -341,8 +341,56 @@ export function nodeLines(tree: MdTree): Map<string, number> {
     return writeLines(tree).lineOf;
 }
 
-/** The note's lines, and where each node's own line went. */
-function writeLines(tree: MdTree): { lines: string[]; lineOf: Map<string, number> } {
+/**
+ * The node's part of the note as Markdown: its own line and everything under
+ * it, as written, without trailing blank lines. A list item or an indented
+ * paragraph loses its own indentation, so the copy starts at the margin. The
+ * virtual root, which has no line of its own, gives the whole note.
+ */
+export function markdownOf(tree: MdTree, id: string): string {
+    const { lines, lineOf, contentEnd } = writeLines(tree);
+    const start = lineOf.get(id);
+    const node = findMdNode(tree.root, id);
+    let section: string[];
+    if (start === undefined || !node) {
+        section = lines.slice(0, contentEnd);
+    } else {
+        const inside = new Set<string>();
+        const collect = (n: MdNode) => {
+            inside.add(n.id);
+            n.children.forEach(collect);
+        };
+        collect(node);
+        let end = contentEnd;
+        lineOf.forEach((line, other) => {
+            if (!inside.has(other) && line > start && line < end) {
+                end = line;
+            }
+        });
+        section = lines.slice(start, end);
+    }
+    while (section.length > 0 && section[section.length - 1].trim() === '') {
+        section.pop();
+    }
+    const indent = section.length > 0 ? section[0].match(/^\s*/)![0] : '';
+    return section.map(line => (line.startsWith(indent) ? line.slice(indent.length) : line)).join('\n');
+}
+
+function findMdNode(node: MdNode, id: string): MdNode | undefined {
+    if (node.id === id) {
+        return node;
+    }
+    for (const child of node.children) {
+        const found = findMdNode(child, id);
+        if (found) {
+            return found;
+        }
+    }
+    return undefined;
+}
+
+/** The note's lines, where each node's own line went, and where the content ends before the positions block. */
+function writeLines(tree: MdTree): { lines: string[]; lineOf: Map<string, number>; contentEnd: number } {
     const out: string[] = [...tree.preamble];
     const lineOf = new Map<string, number>();
     const gapFor = (parent: MdNode, child: MdNode, firstHeading: boolean) =>
@@ -393,6 +441,7 @@ function writeLines(tree: MdTree): { lines: string[]; lineOf: Map<string, number
     };
 
     emitChildren(tree.root, tree.baseLevel, '');
+    const contentEnd = out.length;
     const paths = Object.keys(tree.positions);
     if (paths.length > 0) {
         for (let i = 0; i < tree.positionsGap; i++) {
@@ -407,7 +456,7 @@ function writeLines(tree: MdTree): { lines: string[]; lineOf: Map<string, number
     for (let i = 0; i < tree.trailingBlanks; i++) {
         out.push('');
     }
-    return { lines: out, lineOf };
+    return { lines: out, lineOf, contentEnd };
 }
 
 /**

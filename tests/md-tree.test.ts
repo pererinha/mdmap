@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { mapRoot, mediaLinks, nodeLines, parseMarkdown, positionsToIds, reconcile, serializeMarkdown, MdNode, PlainNode } from '../src/md-tree';
+import { mapRoot, markdownOf, mediaLinks, nodeLines, parseMarkdown, positionsToIds, reconcile, serializeMarkdown, MdNode, PlainNode } from '../src/md-tree';
 
 const CANAL = [
     '# Canal',
@@ -444,5 +444,60 @@ describe('md-tree node lines', () => {
         const md = serializeMarkdown(moved);
         expect(md.split('\n')[nodeLines(moved).get(artigos.id)!]).to.equal('### Artigos');
         expect(nodeLines(moved).get(artigos.id)).to.equal(md.split('\n').indexOf('### Artigos'));
+    });
+});
+
+describe('md-tree copy as Markdown', () => {
+    const NOTE = [
+        '# Canal',
+        '',
+        '## Pesquisa',
+        '',
+        'Regras das falas:',
+        '',
+        '1. primeira',
+        '   - detalhe',
+        '     - mais fundo',
+        '2. segunda',
+        '',
+        '### Artigos',
+        'corpo dos artigos',
+        '',
+        '## Roteiro',
+        '',
+        '### Introdução',
+        '',
+        '%% mindmap-positions',
+        'Roteiro: 10,20',
+        '%%',
+        '',
+    ].join('\n');
+    const tree = parseMarkdown(NOTE);
+    const root = mapRoot(tree, 'Canal');
+
+    it('a heading copies its line and everything under it, up to the next section', () => {
+        expect(markdownOf(tree, find(root, 'Pesquisa')!.id)).to.equal(
+            ['## Pesquisa', '', 'Regras das falas:', '', '1. primeira', '   - detalhe', '     - mais fundo', '2. segunda', '', '### Artigos', 'corpo dos artigos'].join('\n'),
+        );
+    });
+
+    it('a paragraph copies with the list that hangs from it', () => {
+        expect(markdownOf(tree, find(root, 'Regras das falas:')!.id)).to.equal(
+            ['Regras das falas:', '', '1. primeira', '   - detalhe', '     - mais fundo', '2. segunda'].join('\n'),
+        );
+    });
+
+    it('a nested list item copies with its own items, moved to the margin', () => {
+        expect(markdownOf(tree, find(root, 'detalhe')!.id)).to.equal(['- detalhe', '  - mais fundo'].join('\n'));
+    });
+
+    it('the last section stops before the positions block', () => {
+        expect(markdownOf(tree, find(root, 'Roteiro')!.id)).to.equal(['## Roteiro', '', '### Introdução'].join('\n'));
+    });
+
+    it('the root copies the whole note without the positions block', () => {
+        expect(markdownOf(tree, root.id)).to.equal(NOTE.slice(0, NOTE.indexOf('\n\n%% mindmap-positions')));
+        const twoTop = parseMarkdown('intro\n\n# A\n\n# B\n');
+        expect(markdownOf(twoTop, mapRoot(twoTop, 'f').id)).to.equal('intro\n\n# A\n\n# B');
     });
 });
