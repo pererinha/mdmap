@@ -4,6 +4,11 @@
  * on its children, siblings keep the document order. In the default "center"
  * layout the top-level branches alternate right and left of the root; the
  * "right" layout puts every branch on the right.
+ *
+ * Every node except the root is a React Flow child of its parent (`parentId`):
+ * its position is an offset from the parent's top-left corner, so the whole
+ * subtree follows when the parent moves, and a saved position stays valid
+ * wherever the parent ends up.
  */
 
 import type { Edge, Node } from '@xyflow/react';
@@ -141,15 +146,28 @@ function layoutSide(root: PlainNode, branches: Branch[], side: Side): { nodes: M
     return { nodes, edges, height };
 }
 
-/** Positions for the tree in the given layout; nodes listed in `overrides` keep the position the user gave them. */
+/**
+ * Positions for the tree in the given layout. Nodes listed in `overrides` keep
+ * the offset from their parent that the user gave them; the root is never
+ * overridden. The root comes first and every parent precedes its children,
+ * as React Flow requires for `parentId`.
+ */
 export function layoutTree(root: PlainNode, layout: Layout = 'center', overrides: Record<string, XY> = {}): { nodes: MdFlowNode[]; edges: Edge[] } {
     const laid = layout === 'radial' ? layoutRadial(root) : layoutTidy(root, layout);
-    for (const node of laid.nodes) {
-        if (overrides[node.id]) {
-            node.position = { ...overrides[node.id] };
+    const absolute = new Map(laid.nodes.map(node => [node.id, node]));
+    const nodes: MdFlowNode[] = [];
+    const visit = (plain: PlainNode, parent?: MdFlowNode) => {
+        const node = absolute.get(plain.id)!;
+        if (parent) {
+            const offset = overrides[node.id] ?? { x: node.position.x - parent.position.x, y: node.position.y - parent.position.y };
+            nodes.push({ ...node, parentId: parent.id, position: { ...offset } });
+        } else {
+            nodes.push({ ...node, position: { ...node.position } });
         }
-    }
-    return laid;
+        plain.children.forEach(child => visit(child, node));
+    };
+    visit(root);
+    return { nodes, edges: laid.edges };
 }
 
 function layoutTidy(root: PlainNode, layout: 'center' | 'right'): { nodes: MdFlowNode[]; edges: Edge[] } {

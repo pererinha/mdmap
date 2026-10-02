@@ -288,6 +288,15 @@ describe('md-tree positions block', () => {
         expect(serializeMarkdown(reconcile(moved, root, {}))).to.equal(CANAL);
     });
 
+    it('a positioned parent and child are separate entries, each an offset from its own parent', () => {
+        const tree = parseMarkdown(CANAL);
+        const root = mapRoot(tree, 'f');
+        const pesquisa = find(root, 'Pesquisa')!;
+        const artigos = find(root, 'Artigos')!;
+        const out = serializeMarkdown(reconcile(tree, root, { [pesquisa.id]: { x: 500, y: 300 }, [artigos.id]: { x: 40, y: 80 } }));
+        expect(out).to.equal(CANAL + '\n%% mindmap-positions\nPesquisa: 500,300\nPesquisa/Artigos: 40,80\n%%\n');
+    });
+
     it('a renamed node keeps its position under the new path', () => {
         const tree = parseMarkdown(CANAL);
         const root = mapRoot(tree, 'f');

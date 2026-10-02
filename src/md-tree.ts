@@ -13,7 +13,9 @@
  * list children come before heading children, as in the document.
  *
  * Node positions the user dragged are kept at the end of the note in an
- * Obsidian comment block, keyed by the node's title path:
+ * Obsidian comment block, keyed by the node's title path. Each value is the
+ * node's offset from its parent's top-left corner, so a positioned subtree
+ * follows its parent:
  *
  *     %% mindmap-positions
  *     Heading A/Sub B: 120,-40

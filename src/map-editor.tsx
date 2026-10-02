@@ -1,6 +1,7 @@
 /*
  * React Flow editor for one tree. The tree is the state; node positions are
- * derived from it on every change. Keys:
+ * derived from it on every change. A node the user dragged keeps its offset
+ * from its parent, and its subtree moves with it. Keys:
  * double-click edits, Tab adds a child, Enter adds a sibling, Delete removes,
  * Alt+Up/Down reorders, drag onto a node reparents, Cmd+Z / Cmd+Shift+Z
  * undo and redo.
@@ -23,7 +24,7 @@ import {
 import type { Edge, Node, NodeProps, OnNodeDrag, OnSelectionChangeFunc, ReactFlowInstance } from '@xyflow/react';
 import { PlainNode, XY } from './md-tree';
 import { Layout, MdNodeData, NODE_TYPE, layoutTree } from './tree-layout';
-import { addChild, addSiblingAfter, moveInto, moveSibling, remove, rename } from './tree-ops';
+import { addChild, addSiblingAfter, isDescendant, moveInto, moveSibling, remove, rename } from './tree-ops';
 
 export interface ResolvedMedia {
     src: string;
@@ -277,11 +278,14 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
 
     const onNodeDragStop = useCallback<OnNodeDrag<EditorNode>>(
         (_event, node) => {
-            const target = flow.getIntersectingNodes(node).find(other => other.id !== node.id);
+            // The dragged subtree travels with the node; none of it is a drop target.
+            const target = flow
+                .getIntersectingNodes(node)
+                .find(other => other.id !== node.id && !isDescendant(rootRef.current, node.id, other.id));
             if (target) {
                 apply(moveInto(rootRef.current, node.id, target.id), 'move');
             } else if (node.id !== rootRef.current.id) {
-                // Dropped on empty canvas: the node keeps this position and the file remembers it.
+                // Dropped on empty canvas: the node keeps this offset from its parent and the file remembers it.
                 positionsRef.current = { ...positionsRef.current, [node.id]: { ...node.position } };
                 render(rootRef.current);
                 onChange(rootRef.current, 'position', positionsRef.current);
