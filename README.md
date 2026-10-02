@@ -1,8 +1,9 @@
 # mdmap
 
 An [Obsidian](https://obsidian.md) plugin that edits the current note as a
-mind map. The note stays the only source of truth: headings and list items
-are the nodes, and every change in the map is written back to the Markdown.
+mind map. The note stays the only source of truth: headings, list items and
+paragraphs are the nodes, and every change in the map is written back to the
+Markdown.
 
 ## Features
 
@@ -102,20 +103,37 @@ request from your machine. Embeds of files in the vault are loaded locally.
 
 ## Install
 
-Until the plugin is in the community directory: download `main.js`,
-`manifest.json` and `styles.css` from a release into
-`<vault>/.obsidian/plugins/mdmap/`, then enable *mdmap* in
-**Settings → Community plugins**.
+The plugin is not in the community directory yet. To install it by hand:
+
+1. Download `main.js`, `manifest.json` and `styles.css` from a
+   [release](https://github.com/pererinha/mdmap/releases) into
+   `<vault>/.obsidian/plugins/mdmap/`, or build them from the repository
+   straight into the vault (see Development below).
+2. Enable *mdmap* in **Settings → Community plugins**.
+
+Problems and ideas: [issues](https://github.com/pererinha/mdmap/issues).
 
 ## Development
 
 ```sh
+git clone https://github.com/pererinha/mdmap.git
+cd mdmap
 npm install
 npm run build     # main.js; MDMAP_VAULT=/path/to/vault also copies the plugin into that vault
 npm test          # unit tests of the Markdown adapter, the layouts and the Mermaid export
 ```
 
 End-to-end scenarios against a real Obsidian: see [e2e/README.md](e2e/README.md).
+
+### Release
+
+1. Set the new version in `manifest.json` and `package.json`, and describe it
+   in [CHANGELOG.md](CHANGELOG.md).
+2. Push a tag that is exactly that version, without a `v` (`1.0.1`, not
+   `v1.0.1`); Obsidian looks the release up by that name.
+3. The [release workflow](.github/workflows/release.yml) runs the tests,
+   builds, and publishes `main.js`, `manifest.json` and `styles.css` as a
+   GitHub release named after the tag.
 
 Built on [React Flow](https://reactflow.dev). The licenses of the bundled
 packages are in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
