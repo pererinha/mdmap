@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.1
+
+- React Flow's styles ship in `styles.css`, which Obsidian loads with the
+  plugin, instead of a `<style>` element the map added to the page when it
+  opened. The community directory does not allow plugins to add `<style>`
+  elements. The map looks the same.
+
 ## 1.0.0
 
 First release.
