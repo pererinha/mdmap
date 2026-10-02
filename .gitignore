@@ -1,5 +1,6 @@
 .DS_Store
 node_modules/
 main.js
+/styles.css
 test-vault/
 e2e/shots/

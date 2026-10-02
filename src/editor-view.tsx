@@ -1,7 +1,6 @@
 import { ItemView, MarkdownView, Menu, Notice, TFile, WorkspaceLeaf } from 'obsidian';
 import { createRoot, Root } from 'react-dom/client';
-import reactFlowCss from '@xyflow/react/dist/style.css';
-import { EditorSync, injectCss, whenSized } from './editor-sync';
+import { EditorSync, whenSized } from './editor-sync';
 import { PlainNode, XY } from './md-tree';
 import { MapEditor, MapEditorHandle, ResolvedMedia } from './map-editor';
 import { clearReveal, revealLine } from './reveal';
@@ -49,7 +48,6 @@ export default class EditorView extends ItemView {
     }
 
     async onOpen() {
-        injectCss('mdmap-react-flow-css', reactFlowCss);
         this.contentEl.empty();
         this.contentEl.addClass('mdmap-content');
         this.host = this.contentEl.createDiv({ cls: 'mdmap-host' });

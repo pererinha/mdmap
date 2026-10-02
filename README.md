@@ -154,7 +154,7 @@ If mdmap is useful to you, you can support its development on [GitHub Sponsors](
 git clone https://github.com/pererinha/mdmap.git
 cd mdmap
 npm install
-npm run build     # builds main.js; with MDMAP_VAULT=/path/to/vault it also copies the plugin into that vault
+npm run build     # builds main.js and styles.css; with MDMAP_VAULT=/path/to/vault it also copies the plugin into that vault
 npm test          # unit tests for reading and writing Markdown, the layouts and the Mermaid export
 ```
 

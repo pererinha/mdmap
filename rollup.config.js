@@ -3,13 +3,16 @@ import { nodeResolve } from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import replace from '@rollup/plugin-replace';
 import copy from 'rollup-plugin-copy';
+import { readFileSync } from 'fs';
 
-// Inline .css imports as strings so the view can inject React Flow's styles at runtime.
-const cssAsString = () => ({
-  name: 'css-as-string',
-  transform(code, id) {
-    if (!id.endsWith('.css')) return null;
-    return { code: `export default ${JSON.stringify(code)};`, map: { mappings: '' } };
+// Obsidian loads styles.css itself and plugins may not add <style> elements, so the build writes the
+// plugin's styles and React Flow's into it. React Flow's come last, as when the view injected them.
+const stylesheet = () => ({
+  name: 'stylesheet',
+  generateBundle() {
+    const reactFlow = readFileSync('node_modules/@xyflow/react/dist/style.css', 'utf8');
+    const source = `${readFileSync('src/styles.css', 'utf8')}\n/* @xyflow/react styles, MIT license: see THIRD_PARTY_LICENSES.md */\n${reactFlow}`;
+    this.emitFile({ type: 'asset', fileName: 'styles.css', source });
   },
 });
 
@@ -27,7 +30,7 @@ export default {
   // Obsidian provides CodeMirror at runtime; the plugin must use its copy so editor extensions share the editor's state.
   external: ['obsidian', '@codemirror/state', '@codemirror/view'],
   plugins: [
-    cssAsString(),
+    stylesheet(),
     // React and React Flow read process.env.NODE_ENV; Obsidian has no process.env.
     replace({ 'process.env.NODE_ENV': JSON.stringify('production'), preventAssignment: true }),
     typescript(),
