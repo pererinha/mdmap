@@ -16,8 +16,13 @@ First release.
   keep the selection.
 - Body preview under the title; image and video embeds shown inside the node,
   images open in Obsidian on click.
-- Root in the centre with branches alternating right and left, one colour per
-  branch, light and dark theme.
+- Root in the centre with branches split between right and left so both sides
+  have about the same height, one colour per branch, light and dark theme.
 - Free node positions kept in a `%% mindmap-positions` comment block at the
-  end of the note; *Tidy tree*, *Center root* and *Radial* organizers.
+  end of the note, each relative to the node's parent; dragging a node moves
+  its subtree.
+- *Tidy tree*, *Center root* and *Radial* organizers: no overlapping nodes,
+  even spacing whatever the node's height, curves that widen with the fan
+  they draw, and nodes that glide to their new places. The view zooms out as
+  far as needed to show the whole map.
 - Command *Copy current note as Mermaid mindmap*.

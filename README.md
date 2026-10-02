@@ -19,8 +19,13 @@ are the nodes, and every change in the map is written back to the Markdown.
 - **Two-way sync.** Editing the map writes the note. Editing the note (in
   Obsidian or outside it) updates the map and keeps the selection.
 - **Free positions and organizers.** Drag a node to empty canvas and it stays
-  there; the position is saved in the note. The buttons *Tidy tree*, *Center
-  root* and *Radial* recompute every position and forget the saved ones.
+  there, its subtree moving with it; the position is saved in the note,
+  relative to the node's parent, so a positioned child follows when its parent
+  moves later. The buttons *Tidy tree*, *Center root* and *Radial* recompute
+  every position, forget the saved ones and glide the nodes to their new
+  places. No two nodes overlap in any of the three; *Center root* splits the
+  branches so both sides have about the same height. The view zooms out as
+  far as it takes to show the whole map.
 - **Mermaid export.** A command copies the note as a Mermaid `mindmap` block.
 - **Undo and redo** inside the map.
 
@@ -41,7 +46,7 @@ are the nodes, and every change in the map is written back to the Markdown.
 | Delete | Delete or Backspace |
 | Reorder among siblings | Alt+Up / Alt+Down |
 | Move to another parent | Drag the node onto the new parent |
-| Keep a free position | Drag the node to empty canvas |
+| Keep a free position | Drag the node to empty canvas; its children move with it |
 | Undo / redo | Cmd+Z / Cmd+Shift+Z (Ctrl on Windows and Linux) |
 
 ## Setting
@@ -61,8 +66,9 @@ Pesquisa/Artigos: -54,149
 %%
 ```
 
-Each line is the node's path (titles joined with `/`) and its x,y on the
-canvas. Obsidian hides `%%` comments in reading view. The block is removed
+Each line is the node's path (titles joined with `/`) and its x,y offset from
+its parent's top-left corner, so a node keeps its place next to its parent
+wherever the parent goes. Obsidian hides `%%` comments in reading view. The block is removed
 when no node has a free position any more, for example after *Tidy tree*.
 
 ## Embeds with an external URL
@@ -83,7 +89,7 @@ Until the plugin is in the community directory: download `main.js`,
 ```sh
 npm install
 npm run build     # main.js; MDMAP_VAULT=/path/to/vault also copies the plugin into that vault
-npm test          # unit tests of the Markdown adapter and the Mermaid export
+npm test          # unit tests of the Markdown adapter, the layouts and the Mermaid export
 ```
 
 End-to-end scenarios against a real Obsidian: see [e2e/README.md](e2e/README.md).
