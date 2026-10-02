@@ -247,6 +247,58 @@ describe('md-tree paragraphs', () => {
         const reread = mapRoot(parseMarkdown(out), 'f');
         expect(reread.children.map(c => c.title)).to.deep.equal(['item solto do título', 'Regras das falas:', 'Narrador e mascote: português sem sotaque.']);
     });
+
+    const SERIES = [
+        '# Notas',
+        '',
+        'Primeiro parágrafo.',
+        'continua aqui.',
+        '',
+        'Segundo parágrafo.',
+        '',
+        '|a|b|',
+        '|---|---|',
+        '',
+        'Terceiro depois da tabela.',
+        '',
+        'Regras:',
+        '- um',
+        '- dois',
+        '',
+        'Depois da lista.',
+        '',
+        'Outro depois.',
+        '',
+    ].join('\n');
+
+    it('keeps paragraphs that follow one another in one block, and a paragraph a list follows on its own', () => {
+        expect(serializeMarkdown(parseMarkdown(SERIES))).to.equal(SERIES);
+        const root = mapRoot(parseMarkdown(SERIES), 'f');
+        expect(root.children.map(c => [c.title, c.kind])).to.deep.equal([
+            ['Primeiro parágrafo.', 'paragraph'],
+            ['Regras:', 'paragraph'],
+            ['Depois da lista.', 'paragraph'],
+        ]);
+        expect(root.children[0].text).to.equal('Primeiro parágrafo.\ncontinua aqui.\nSegundo parágrafo.\nTerceiro depois da tabela.');
+        expect(find(root, 'Regras:')!.children.map(c => [c.title, c.kind])).to.deep.equal([['um', 'list'], ['dois', 'list']]);
+        expect(root.children[2].text).to.equal('Depois da lista.\nOutro depois.');
+    });
+
+    it('copies a block of paragraphs with all of its paragraphs', () => {
+        const tree = parseMarkdown(SERIES);
+        expect(markdownOf(tree, tree.root.children[0].children[0].id)).to.equal(SERIES.split('\nRegras:')[0].trimEnd().split('\n').slice(2).join('\n'));
+    });
+
+    it('joins paragraphs that end up next to each other, as the note will read back', () => {
+        const tree = parseMarkdown(SERIES);
+        const root = mapRoot(tree, 'f');
+        find(root, 'Regras:')!.children = [];
+        const joined = reconcile(tree, root);
+        const out = serializeMarkdown(joined);
+        expect(out).to.equal(SERIES.replace('- um\n- dois\n', ''));
+        expect(mapRoot(joined, 'f').children.map(c => c.title)).to.deep.equal(['Primeiro parágrafo.']);
+        expect(mapRoot(parseMarkdown(out), 'f').children.map(c => c.title)).to.deep.equal(['Primeiro parágrafo.']);
+    });
 });
 
 describe('md-tree list items', () => {

@@ -9,10 +9,12 @@
  * List items and paragraphs in a heading's body become nodes too (kinds
  * "list" and "paragraph"). Items nest by indentation. A paragraph starts at an
  * unindented line that opens the body or follows a blank line; its first line
- * is the node's title and the rest of the paragraph is its body. A list that
- * comes right after a paragraph (blank lines aside) belongs to that paragraph,
- * so "Rules:" followed by a numbered list is one node with the rules as its
- * children. Everything else (blank lines, continuation and indented lines,
+ * is the node's title and the rest of the paragraph is its body. Paragraphs
+ * that follow one another, with no list between them, are one node: the later
+ * ones are in the first one's body. A list that comes right after a paragraph
+ * (blank lines aside) belongs to that paragraph, so "Rules:" followed by a
+ * numbered list is one node with the rules as its children, even after other
+ * paragraphs. Everything else (blank lines, continuation and indented lines,
  * tables, code, quotes, embeds) stays in the body of the node before it and
  * travels with it; lines before the first such node stay the heading's body.
  * Under a heading, items and paragraphs come before heading children, as in
@@ -239,6 +241,25 @@ function isParagraphStart(line: string): boolean {
     );
 }
 
+/** Whether a list comes right after the paragraph that starts at `lines[start]` (blank lines aside), so the list hangs from it. */
+function introducesList(lines: string[], start: number): boolean {
+    let afterBlank = false;
+    for (let i = start + 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (FENCE_RE.test(line)) {
+            return false;
+        }
+        if (line.trim() === '') {
+            afterBlank = true;
+        } else if (LIST_ITEM_RE.test(line)) {
+            return true;
+        } else if (afterBlank) {
+            return false;
+        }
+    }
+    return false;
+}
+
 /** Turns the list items and paragraphs in a heading's body into child nodes; recurses into sub-headings. */
 function splitBody(heading: MdNode): void {
     const headingChildren = heading.children;
@@ -250,12 +271,15 @@ function splitBody(heading: MdNode): void {
     let listParent: MdNode[] = blocks;
     // The last paragraph, while a list that follows it would still be its list.
     let lastParagraph: MdNode | null = null;
+    // The paragraph whose body takes the lines, until a list item starts; the next paragraph joins its block.
+    let openParagraph: MdNode | null = null;
     let owner: string[] = lead;
     let inFence = false;
     // The heading line counts as a block boundary, so a paragraph can start right under it.
     let afterBlank = true;
 
-    for (const line of heading.body) {
+    for (let index = 0; index < heading.body.length; index++) {
+        const line = heading.body[index];
         const fence = FENCE_RE.test(line);
         // Unindented text after a blank line ends a running list, as in Markdown; a list after it is a new list.
         if (!inFence && afterBlank && line.trim() !== '' && !/^\s/.test(line) && !LIST_ITEM_RE.test(line)) {
@@ -289,14 +313,20 @@ function splitBody(heading: MdNode): void {
             (stack.length > 0 ? stack[stack.length - 1].node.children : listParent).push(node);
             stack.push({ width, node });
             owner = node.body;
+            openParagraph = null;
             afterBlank = false;
             continue;
         }
         if (afterBlank && isParagraphStart(line)) {
-            const node: MdNode = { id: nextId(), title: line, kind: 'paragraph', body: [], children: [] };
-            blocks.push(node);
-            lastParagraph = node;
-            owner = node.body;
+            // A paragraph right after another one joins its block; a paragraph that a list follows is its own node.
+            if (openParagraph && !introducesList(heading.body, index)) {
+                owner.push(line);
+            } else {
+                openParagraph = { id: nextId(), title: line, kind: 'paragraph', body: [], children: [] };
+                blocks.push(openParagraph);
+                owner = openParagraph.body;
+            }
+            lastParagraph = openParagraph;
             afterBlank = false;
             continue;
         }
@@ -506,14 +536,37 @@ export function toPlain(node: MdNode): PlainNode {
     };
 }
 
-/** The paragraph's own lines: its title and the lines that continue it, up to the first blank line or other block. */
+/**
+ * The text of the paragraphs in the block: each paragraph's lines, up to a
+ * blank line or another block. Tables, code and embeds between them are left out.
+ */
 function paragraphText(node: MdNode): string {
     const lines = [node.title];
+    let inText = true;
+    let inFence = false;
+    let afterBlank = false;
     for (const line of node.body) {
-        if (line.trim() === '' || TABLE_RE.test(line) || FENCE_RE.test(line) || EMBED_LINE_RE.test(line)) {
-            break;
+        const fence = FENCE_RE.test(line);
+        if (inFence || fence) {
+            inFence = fence ? !inFence : inFence;
+            inText = false;
+            afterBlank = false;
+            continue;
         }
-        lines.push(line);
+        if (line.trim() === '') {
+            inText = false;
+            afterBlank = true;
+            continue;
+        }
+        if (afterBlank && isParagraphStart(line)) {
+            inText = true;
+        } else if (TABLE_RE.test(line) || EMBED_LINE_RE.test(line)) {
+            inText = false;
+        }
+        afterBlank = false;
+        if (inText) {
+            lines.push(line);
+        }
     }
     return lines.map(line => line.trim()).join('\n');
 }
@@ -572,7 +625,7 @@ export function reconcile(tree: MdTree, editorRoot: PlainNode, positionsById?: R
             return built;
         });
         if (kind === 'heading') {
-            node.children = attachListsToParagraphs([...node.children.filter(c => c.kind !== 'heading'), ...node.children.filter(c => c.kind === 'heading')]);
+            node.children = joinParagraphs(attachListsToParagraphs([...node.children.filter(c => c.kind !== 'heading'), ...node.children.filter(c => c.kind === 'heading')]));
         }
         return node;
     };
@@ -600,6 +653,25 @@ function attachListsToParagraphs(children: MdNode[]): MdNode[] {
             continue;
         }
         paragraph = child.kind === 'paragraph' ? child : null;
+        result.push(child);
+    }
+    return result;
+}
+
+/**
+ * A paragraph written right after another one, with no list between them, is
+ * read back as part of that paragraph's block, so the tree joins them now.
+ */
+function joinParagraphs(children: MdNode[]): MdNode[] {
+    const result: MdNode[] = [];
+    for (const child of children) {
+        const previous = result[result.length - 1];
+        if (child.kind === 'paragraph' && child.children.length === 0 && previous?.kind === 'paragraph' && previous.children.length === 0) {
+            const last = previous.body[previous.body.length - 1];
+            const blank = last === undefined || last.trim() !== '' ? [''] : [];
+            previous.body = [...previous.body, ...blank, child.title.trimStart(), ...child.body];
+            continue;
+        }
         result.push(child);
     }
     return result;

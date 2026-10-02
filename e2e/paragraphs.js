@@ -1,6 +1,6 @@
-// Paragraphs as nodes: each paragraph is a block of wrapped text that stays inside its box, "Regras das falas:"
-// carries the rules as its children, Tab on a paragraph writes a list item right under it, undo restores the
-// note, and clicking a paragraph highlights its line in the note.
+// Paragraphs as nodes: paragraphs that follow one another are one block of wrapped text that stays inside its
+// box, "Regras das falas:" carries the rules as its children, Tab on a paragraph writes a list item right under
+// it, undo restores the note, and clicking a block highlights its first line in the note.
 const { connect, sleep, reloadPlugin, openEditor, clickNode, md, shot, view } = require('./lib');
 
 const FILE = 'Paragraphs-e2e.md';
@@ -59,12 +59,14 @@ const NOTE = [
       rulesChildren: nodes.filter(n => n.parentId === rules?.id).map(n => n.data.kind + ': ' + n.data.title.slice(0, 30)),
       blocks,
       overlaps,
+      joined: nodes.find(n => n.data.title === ${JSON.stringify(LONG)})?.data.text.includes('Narrador e mascote: português sem sotaque.'),
     };
   })()`);
   console.log('top-level nodes:', JSON.stringify(shape.kinds));
   console.log('children of "Regras das falas:":', JSON.stringify(shape.rulesChildren), '| two rules:', shape.rulesChildren.length === 2 && shape.rulesChildren.every(k => k.startsWith('list')));
   console.log('paragraph blocks:', JSON.stringify(shape.blocks), '| text inside every box:', shape.blocks.every(b => b.inside), '| long one clamped:', shape.blocks.some(b => b.clamped));
   console.log('overlapping nodes:', shape.overlaps);
+  console.log('the long paragraph and "Narrador e mascote" are one block:', shape.joined === true);
   console.log(await shot(page, 'paragraphs-01-open'));
 
   // 2. Tab on "Regras das falas:" adds a rule under it in the note
@@ -92,13 +94,13 @@ const NOTE = [
   await sleep(800);
   console.log('after undo, the note is the original:', (await md(page, FILE)) === NOTE);
 
-  // 4. clicking a paragraph highlights its line in the note
-  await clickNode(page, 'Narrador e mascote: português sem sotaque.');
+  // 4. clicking a block of paragraphs highlights its first line in the note
+  await clickNode(page, LONG);
   const revealed = await page.evaluate(file => {
     const leaf = app.workspace.getLeavesOfType('markdown').find(l => l.view.file?.path === file);
     return Array.from(leaf.view.containerEl.querySelectorAll('.cm-line.mdmap-revealed')).map(el => el.textContent.replace(/[​-‍﻿]/g, '').trim());
   }, FILE);
-  console.log('highlighted line:', JSON.stringify(revealed), '| is the paragraph:', revealed.length === 1 && revealed[0] === 'Narrador e mascote: português sem sotaque.');
+  console.log('highlighted line:', JSON.stringify(revealed.map(l => l.slice(0, 30))), '| is the first line of the block:', revealed.length === 1 && revealed[0] === LONG);
   console.log(await shot(page, 'paragraphs-03-reveal'));
 
   console.log('writes:', ctx.drain().filter(l => l.includes('wrote')).length, '(Tab and undo)');
