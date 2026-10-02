@@ -16,12 +16,13 @@ only place where the content is stored.
 - **List items as nodes.** The list items under a heading become its
   children, and an indented item becomes a child of the item above it. You
   can turn this off in the settings.
-- **Paragraphs as nodes.** Each paragraph under a heading is a node that
-  shows up to six lines of its text. Hover over it to see the full text. A
-  list that comes right after a paragraph becomes the paragraph's children,
-  so `Rules:` followed by a numbered list is one node with each rule as a
-  child. Tables, code blocks, quotes and embeds belong to the node before
-  them. The setting that turns off list items also turns off paragraphs.
+- **Paragraphs as nodes.** Paragraphs that follow one another under a
+  heading are one node, which shows up to six lines of their text. Hover over
+  it to see the full text. Tables, code blocks, quotes and embeds belong to
+  the node before them. A list that comes right after a paragraph becomes
+  that paragraph's children, so `Rules:` followed by a numbered list is a
+  node of its own with each rule as a child, even when other paragraphs come
+  before it. The setting that turns off list items also turns off paragraphs.
 - **Preview and media.** A node shows the first line of its content under its
   title. Images and videos embedded in that content are shown inside the
   node. Click an image to open it in Obsidian.
