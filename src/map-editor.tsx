@@ -42,6 +42,8 @@ export interface MapEditorHandle {
     /** Recomputes every position in the given layout and forgets the saved ones. */
     organize(layout: Layout): void;
     fit(): Promise<boolean>;
+    /** Selects the node and glides the viewport to center it, zooming in to at least FOCUS_ZOOM. */
+    focus(id: string): void;
     /** The React Flow instance, for scripts that drive the view. */
     instance: ReactFlowInstance<EditorNode>;
 }
@@ -173,6 +175,8 @@ const FIT_PADDING = 0.1;
 const FIT_MAX_ZOOM = 1.25;
 /** How long the organizer buttons take to move the nodes and the viewport. */
 const ORGANIZE_MS = 450;
+/** Zoom a focused node is shown at, at least, so its text can be read. */
+const FOCUS_ZOOM = 1;
 
 function easeInOutCubic(t: number): number {
     return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
@@ -333,6 +337,18 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
             },
             fit() {
                 return flow.fitView({ padding: FIT_PADDING, maxZoom: FIT_MAX_ZOOM });
+            },
+            focus(id) {
+                const node = flow.getInternalNode(id);
+                if (!node) {
+                    return;
+                }
+                selectedId.current = id;
+                setNodes(nodes => nodes.map(n => (Boolean(n.selected) === (n.id === id) ? n : { ...n, selected: n.id === id })));
+                const { x, y } = node.internals.positionAbsolute;
+                const width = node.measured?.width ?? node.width ?? 0;
+                const height = node.measured?.height ?? node.height ?? 0;
+                flow.setCenter(x + width / 2, y + height / 2, { zoom: Math.max(flow.getZoom(), FOCUS_ZOOM), duration: ORGANIZE_MS });
             },
             instance: flow,
         };

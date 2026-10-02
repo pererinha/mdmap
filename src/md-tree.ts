@@ -342,6 +342,26 @@ export function nodeLines(tree: MdTree): Map<string, number> {
 }
 
 /**
+ * The heading node written on `line` with exactly this text. When the note in
+ * the editor has moved since the file was read (unsaved lines above), the
+ * heading with this text nearest to `line`. Undefined for any other line.
+ */
+export function headingAt(tree: MdTree, line: number, text: string): string | undefined {
+    if (!HEADING_RE.test(text)) {
+        return undefined;
+    }
+    const { lines, lineOf } = writeLines(tree);
+    let best: { id: string; distance: number } | undefined;
+    lineOf.forEach((written, id) => {
+        const distance = Math.abs(written - line);
+        if (lines[written] === text && (!best || distance < best.distance)) {
+            best = { id, distance };
+        }
+    });
+    return best?.id;
+}
+
+/**
  * The node's part of the note as Markdown: its own line and everything under
  * it, as written, without trailing blank lines. A list item or an indented
  * paragraph loses its own indentation, so the copy starts at the margin. The

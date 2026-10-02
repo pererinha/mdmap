@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { mapRoot, markdownOf, mediaLinks, nodeLines, parseMarkdown, positionsToIds, reconcile, serializeMarkdown, MdNode, PlainNode } from '../src/md-tree';
+import { headingAt, mapRoot, markdownOf, mediaLinks, nodeLines, parseMarkdown, positionsToIds, reconcile, serializeMarkdown, MdNode, PlainNode } from '../src/md-tree';
 
 const CANAL = [
     '# Canal',
@@ -499,5 +499,25 @@ describe('md-tree copy as Markdown', () => {
         expect(markdownOf(tree, root.id)).to.equal(NOTE.slice(0, NOTE.indexOf('\n\n%% mindmap-positions')));
         const twoTop = parseMarkdown('intro\n\n# A\n\n# B\n');
         expect(markdownOf(twoTop, mapRoot(twoTop, 'f').id)).to.equal('intro\n\n# A\n\n# B');
+    });
+});
+
+describe('md-tree heading under the cursor', () => {
+    const tree = parseMarkdown(CANAL);
+    const root = mapRoot(tree, 'Canal');
+    const lines = CANAL.split('\n');
+
+    it('finds the heading written on the line', () => {
+        expect(headingAt(tree, lines.indexOf('### Artigos'), '### Artigos')).to.equal(find(root, 'Artigos')!.id);
+        expect(headingAt(tree, 0, '# Canal')).to.equal(root.id);
+    });
+
+    it('finds it by text when unsaved lines moved it in the editor', () => {
+        expect(headingAt(tree, lines.indexOf('## Roteiro') + 3, '## Roteiro')).to.equal(find(root, 'Roteiro')!.id);
+    });
+
+    it('ignores lines that are not headings or not in the note', () => {
+        expect(headingAt(tree, 1, '')).to.equal(undefined);
+        expect(headingAt(tree, 3, '### Nova seção')).to.equal(undefined);
     });
 });

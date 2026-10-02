@@ -128,6 +128,14 @@ export default class EditorView extends ItemView {
         this.sync.watch();
     }
 
+    /** Selects and centers the node of the heading on that line of the note; other lines are ignored. */
+    focusHeading(line: number, text: string) {
+        const id = this.sync?.headingAt(line, text);
+        if (id) {
+            this.editor?.focus(id);
+        }
+    }
+
     /** Puts the node and everything under it on the clipboard, as Markdown from the note. */
     private async copyNode(id: string) {
         await navigator.clipboard.writeText(this.sync.markdownOf(id));
