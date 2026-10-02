@@ -37,6 +37,9 @@ node e2e/trackpad.js   # two-finger scroll pans one to one, pinch zooms around t
 node e2e/paragraphs.js # paragraphs as text blocks, a list hanging from the paragraph before it, Tab and undo on it
 ```
 
+The scenarios create, rewrite and delete notes, so they stop unless the
+Obsidian on the port has `test-vault/` open.
+
 Each scenario prints the content of `Canal.md` after each step and saves
 screenshots to `e2e/shots/`. Write the output to a file instead of piping it
 through `head`: a closed pipe kills the scenario midway.

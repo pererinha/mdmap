@@ -3,6 +3,7 @@ const puppeteer = require('puppeteer-core');
 const fs = require('fs');
 
 const PORT = process.env.MDMAP_CDP_PORT || '9333';
+const VAULT = require('path').resolve(__dirname, '..', 'test-vault');
 const OUT = `${__dirname}/shots`;
 fs.mkdirSync(OUT, { recursive: true });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -11,6 +12,12 @@ async function connect() {
   const browser = await puppeteer.connect({ browserURL: `http://127.0.0.1:${PORT}`, defaultViewport: null });
   const page = (await browser.pages()).find(p => p.url().startsWith('app://obsidian.md'));
   if (!page) throw new Error('no Obsidian page on port ' + PORT);
+  // The scenarios create, rewrite and delete notes: refuse any vault but the test vault.
+  const vault = await page.evaluate(() => app.vault.adapter.basePath);
+  if (vault !== VAULT) {
+    browser.disconnect();
+    throw new Error(`Obsidian on port ${PORT} has the vault ${vault} open, not the test vault ${VAULT}; stopping before touching it`);
+  }
   const logs = [];
   page.on('console', m => { const t = m.text(); if (t.includes('[mdmap]') || m.type() === 'error') logs.push(t.slice(0, 200)); });
   const size = await page.evaluate(() => { try { const w = require('electron').remote.getCurrentWindow(); w.setSize(1600, 900); return w.getSize(); } catch (e) { return 'resize failed: ' + e.message; } });
