@@ -1,7 +1,7 @@
 {
   "name": "mdmap",
   "version": "1.0.0",
-  "description": "Obsidian plugin: edit a note's headings and list items as a mind map that writes back to the note.",
+  "description": "Obsidian plugin: edit a note's headings, list items and paragraphs as a mind map that writes back to the note.",
   "main": "main.js",
   "private": true,
   "scripts": {
@@ -9,7 +9,15 @@
     "build": "rollup --config rollup.config.js",
     "test": "mocha -r ts-node/register tests/**/*.test.ts"
   },
-  "author": "daniel",
+  "author": "pererinha",
+  "homepage": "https://github.com/pererinha/mdmap",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pererinha/mdmap.git"
+  },
+  "bugs": {
+    "url": "https://github.com/pererinha/mdmap/issues"
+  },
   "license": "MIT",
   "dependencies": {
     "@xyflow/react": "^12.12.0",

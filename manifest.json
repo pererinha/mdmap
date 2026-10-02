@@ -3,7 +3,8 @@
   "name": "mdmap",
   "version": "1.0.0",
   "minAppVersion": "1.8.9",
-  "description": "Edit the headings and list items of the current note as a mind map that writes back to the note, and copy the note as a Mermaid mindmap.",
-  "author": "daniel",
+  "description": "Edit the current note as a mind map that writes back to the note: headings, list items and paragraphs become nodes. Copy a branch as Markdown or the whole note as a Mermaid mindmap.",
+  "author": "pererinha",
+  "authorUrl": "https://github.com/pererinha",
   "isDesktopOnly": false
 }
