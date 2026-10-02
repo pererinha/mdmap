@@ -25,4 +25,8 @@ First release.
   even spacing whatever the node's height, curves that widen with the fan
   they draw, and nodes that glide to their new places. The view zooms out as
   far as needed to show the whole map.
+- Clicking a node scrolls the note to its line and highlights it; a toggle in
+  the gear menu of the map's header turns this off.
+- Trackpad navigation: two-finger scrolling moves the map like a web page;
+  pinching zooms.
 - Command *Copy current note as Mermaid mindmap*.

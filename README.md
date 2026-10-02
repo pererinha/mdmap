@@ -26,6 +26,10 @@ are the nodes, and every change in the map is written back to the Markdown.
   places. No two nodes overlap in any of the three; *Center root* splits the
   branches so both sides have about the same height. The view zooms out as
   far as it takes to show the whole map.
+- **Show the node in the note.** Clicking a node scrolls the note open next to
+  the map to that node's line and highlights it; the map keeps the keyboard.
+  In reading mode the line comes to the top. The gear in the map's header
+  turns this on and off.
 - **Mermaid export.** A command copies the note as a Mermaid `mindmap` block.
 - **Undo and redo** inside the map.
 
@@ -48,12 +52,17 @@ are the nodes, and every change in the map is written back to the Markdown.
 | Move to another parent | Drag the node onto the new parent |
 | Keep a free position | Drag the node to empty canvas; its children move with it |
 | Undo / redo | Cmd+Z / Cmd+Shift+Z (Ctrl on Windows and Linux) |
+| Move around the map | Two-finger scroll on a trackpad (or the mouse wheel), or drag empty canvas |
+| Zoom | Pinch on a trackpad, or Cmd+scroll (Ctrl on Windows and Linux) |
 
-## Setting
+## Settings
 
-**List items as nodes** (on by default). When off, only headings are nodes
-and list items stay in the heading's body. Takes effect when a mind map is
-opened.
+**List items as nodes** (on by default, in *Settings → mdmap*). When off,
+only headings are nodes and list items stay in the heading's body. Takes
+effect when a mind map is opened.
+
+**Show clicked node in the note** (on by default, in the gear menu of the
+map's header). When off, clicking a node only selects it in the map.
 
 ## The positions block
 
