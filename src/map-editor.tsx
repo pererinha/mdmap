@@ -23,7 +23,7 @@ import {
 } from '@xyflow/react';
 import type { Edge, Node, NodeProps, OnNodeDrag, OnSelectionChangeFunc, ReactFlowInstance } from '@xyflow/react';
 import { PlainNode, XY } from './md-tree';
-import { Layout, MdNodeData, NODE_TYPE, layoutTree } from './tree-layout';
+import { Facing, Layout, MdNodeData, NODE_TYPE, layoutTree } from './tree-layout';
 import { addChild, addSiblingAfter, isDescendant, moveInto, moveSibling, remove, rename } from './tree-ops';
 
 export interface ResolvedMedia {
@@ -62,6 +62,9 @@ interface EditorNodeData extends MdNodeData {
 
 type EditorNode = Node<EditorNodeData, typeof NODE_TYPE>;
 
+const FACINGS: Facing[] = ['left', 'right', 'top', 'bottom'];
+const HANDLE_POSITION: Record<Facing, Position> = { left: Position.Left, right: Position.Right, top: Position.Top, bottom: Position.Bottom };
+
 function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
     const classes = [
         'mdmap-node',
@@ -70,24 +73,13 @@ function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
         selected ? 'mdmap-selected' : '',
     ].join(' ');
     const style = data.color ? ({ '--mdmap-branch': data.color } as CSSProperties) : undefined;
-    // The root feeds both sides; other nodes face the root with their target handle.
-    const handles =
-        data.depth === 0 ? (
-            <>
-                <Handle type="source" id="left" position={Position.Left} className="mdmap-handle" />
-                <Handle type="source" id="right" position={Position.Right} className="mdmap-handle" />
-            </>
-        ) : data.side === 'left' ? (
-            <>
-                <Handle type="target" position={Position.Right} className="mdmap-handle" />
-                <Handle type="source" position={Position.Left} className="mdmap-handle" />
-            </>
-        ) : (
-            <>
-                <Handle type="target" position={Position.Left} className="mdmap-handle" />
-                <Handle type="source" position={Position.Right} className="mdmap-handle" />
-            </>
-        );
+    // A source and a target handle on every side; each edge picks the pair that faces the other node.
+    const handles = FACINGS.map(facing => (
+        <span key={facing}>
+            <Handle type="source" id={`out-${facing}`} position={HANDLE_POSITION[facing]} className="mdmap-handle" />
+            <Handle type="target" id={`in-${facing}`} position={HANDLE_POSITION[facing]} className="mdmap-handle" />
+        </span>
+    ));
     return (
         <div className={classes} style={style} title={data.title}>
             {handles}

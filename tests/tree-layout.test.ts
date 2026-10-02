@@ -1,6 +1,8 @@
 import { expect } from 'chai';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { PlainNode, XY, mapRoot, parseMarkdown } from '../src/md-tree';
-import { Layout, MdFlowNode, layoutTree } from '../src/tree-layout';
+import { GAP_Y, Layout, MdFlowNode, layoutTree } from '../src/tree-layout';
 
 const CANAL = [
     '# Canal',
@@ -103,4 +105,105 @@ describe('tree-layout', () => {
     it('an override on the root is ignored', () => {
         expect(layoutTree(root, 'center', { [root.id]: { x: 999, y: 999 } })).to.deep.equal(layoutTree(root, 'center'));
     });
+});
+
+interface Box { id: string; title: string; x: number; y: number; width: number; height: number; side?: string }
+
+/** Canvas boxes of every node, from the parent chain. */
+function boxes(nodes: MdFlowNode[]): Box[] {
+    const canvas = absolute(nodes);
+    return nodes.map(node => ({ id: node.id, title: node.data.title, ...canvas.get(node.id)!, width: node.width!, height: node.height!, side: node.data.side }));
+}
+
+function overlapping(all: Box[]): string[] {
+    const hits: string[] = [];
+    for (let i = 0; i < all.length; i++) {
+        for (let j = i + 1; j < all.length; j++) {
+            const a = all[i];
+            const b = all[j];
+            if (a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height) {
+                hits.push(`${a.title} / ${b.title}`);
+            }
+        }
+    }
+    return hits;
+}
+
+function subtreeIds(node: PlainNode, into: string[] = []): string[] {
+    into.push(node.id);
+    node.children.forEach(child => subtreeIds(child, into));
+    return into;
+}
+
+/** Vertical extent of the given boxes. */
+function extent(of: Box[]): number {
+    return of.length === 0 ? 0 : Math.max(...of.map(b => b.y + b.height)) - Math.min(...of.map(b => b.y));
+}
+
+describe('tree-layout on real notes', () => {
+    const story = mapRoot(parseMarkdown(readFileSync(join(__dirname, '../e2e/fixtures/story.md'), 'utf8'), undefined, { listItems: true }), 'story');
+    const canal = mapRoot(parseMarkdown(CANAL), 'Canal');
+    const notes: Array<[string, PlainNode]> = [['story fixture', story], ['Canal', canal]];
+
+    for (const [name, root] of notes) {
+        for (const layout of LAYOUTS) {
+            it(`${name}, ${layout}: no two node boxes overlap`, () => {
+                expect(overlapping(boxes(layoutTree(root, layout).nodes))).to.deep.equal([]);
+            });
+        }
+
+        for (const layout of ['center', 'right'] as Layout[]) {
+            it(`${name}, ${layout}: sibling leaves are exactly GAP_Y apart, whatever their height`, () => {
+                const byId = new Map(boxes(layoutTree(root, layout).nodes).map(b => [b.id, b]));
+                const gaps: number[] = [];
+                const visit = (node: PlainNode) => {
+                    node.children.forEach((child, index) => {
+                        const next = node.children[index + 1];
+                        if (next && child.children.length === 0 && next.children.length === 0) {
+                            const a = byId.get(child.id)!;
+                            gaps.push(Math.round((byId.get(next.id)!.y - (a.y + a.height)) * 1000) / 1000);
+                        }
+                        visit(child);
+                    });
+                };
+                root.children.forEach(visit);
+                expect(gaps.length).to.be.greaterThan(0);
+                expect(Array.from(new Set(gaps))).to.deep.equal([GAP_Y]);
+            });
+        }
+
+        it(`${name}, center: the two sides differ in height by no more than the tallest top-level branch`, () => {
+            const all = boxes(layoutTree(root, 'center').nodes);
+            const byId = new Map(all.map(b => [b.id, b]));
+            const sideOf = (side: string) => all.filter(b => b.side === side);
+            const tallest = Math.max(...root.children.map(branch => extent(subtreeIds(branch).map(id => byId.get(id)!))));
+            expect(Math.abs(extent(sideOf('left')) - extent(sideOf('right')))).to.be.at.most(tallest + GAP_Y);
+        });
+    }
+
+    it('center splits the story fixture branches by height, not by order', () => {
+        const all = boxes(layoutTree(story, 'center').nodes);
+        const sides = story.children.map(branch => all.find(b => b.id === branch.id)!.side);
+        // Alternating by order would give right, left, right, left, ...
+        const alternating = story.children.map((_, index) => (index % 2 === 0 ? 'right' : 'left'));
+        expect(sides).to.not.deep.equal(alternating);
+    });
+
+    for (const layout of LAYOUTS) {
+        it(`${layout}: every edge leaves its parent on the side facing the child and enters on the opposite side`, () => {
+            const { nodes, edges } = layoutTree(story, layout);
+            const byId = new Map(boxes(nodes).map(b => [b.id, b]));
+            const opposite: Record<string, string> = { left: 'right', right: 'left', top: 'bottom', bottom: 'top' };
+            for (const edge of edges) {
+                const facing = String(edge.sourceHandle).replace('out-', '');
+                expect(edge.targetHandle).to.equal(`in-${opposite[facing]}`);
+                const s = byId.get(edge.source)!;
+                const t = byId.get(edge.target)!;
+                const dx = t.x + t.width / 2 - (s.x + s.width / 2);
+                const dy = t.y + t.height / 2 - (s.y + s.height / 2);
+                const toward = { left: dx < 0, right: dx > 0, top: dy < 0, bottom: dy > 0 }[facing];
+                expect(toward, `${s.title} -> ${t.title} leaves on ${facing}`).to.equal(true);
+            }
+        });
+    }
 });
