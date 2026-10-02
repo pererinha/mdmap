@@ -42,6 +42,27 @@
     border-style: dashed;
     font-size: 13px;
 }
+/* A paragraph of the note: a block of wrapped text as wide and tall as the layout made it. */
+.mdmap-paragraph-node {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+    white-space: normal;
+    border-width: 1px;
+    border-radius: 6px;
+    border-color: color-mix(in srgb, var(--mdmap-branch) 60%, transparent);
+    background: var(--background-primary);
+    font-size: 13px;
+    line-height: 18px;
+}
+.mdmap-text {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
 .mdmap-preview {
     display: block;
     font-size: 11px;

@@ -42,10 +42,10 @@ async function openEditor(page, file = 'Canal.md') {
   }, file);
   await sleep(2500);
 }
-/** Screen rectangle of the node whose title is `title`, or null. */
+/** Screen rectangle of the node whose title (a paragraph's first line) is `title`, or null. */
 async function rect(page, title) {
   return page.evaluate(title => {
-    const span = Array.from(document.querySelectorAll('.mdmap-title')).find(s => s.textContent === title);
+    const span = Array.from(document.querySelectorAll('.mdmap-title, .mdmap-text')).find(s => s.textContent === title || s.textContent.split('\n')[0] === title);
     if (!span) return null;
     const r = span.closest('.react-flow__node').getBoundingClientRect();
     return { x: r.x + r.width / 2, y: r.y + r.height / 2, w: r.width, h: r.height };

@@ -76,6 +76,7 @@ function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
         'mdmap-node',
         data.depth === 0 ? 'mdmap-root-node' : '',
         data.kind === 'list' ? 'mdmap-list-node' : '',
+        data.kind === 'paragraph' ? 'mdmap-paragraph-node' : '',
         selected ? 'mdmap-selected' : '',
     ].join(' ');
     const style = data.color ? ({ '--mdmap-branch': data.color } as CSSProperties) : undefined;
@@ -87,7 +88,7 @@ function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
         </span>
     ));
     return (
-        <div className={classes} style={style} title={data.title}>
+        <div className={classes} style={style} title={data.text ?? data.title}>
             {handles}
             {data.editing ? (
                 <input
@@ -107,7 +108,13 @@ function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
                 />
             ) : (
                 <>
-                    <span className="mdmap-title">{data.label}</span>
+                    {data.text !== undefined ? (
+                        <span className="mdmap-text" style={{ WebkitLineClamp: data.textLines }}>
+                            {data.text}
+                        </span>
+                    ) : (
+                        <span className="mdmap-title">{data.label}</span>
+                    )}
                     {data.preview && data.depth > 0 && <span className="mdmap-preview">{data.preview}</span>}
                     {data.resolved.length > 0 && (
                         <span className="mdmap-media">

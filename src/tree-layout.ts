@@ -45,6 +45,9 @@ export interface MdNodeData extends Record<string, unknown> {
     media?: string[];
     /** Title cut to LABEL_MAX characters for the canvas; the full title goes to the tooltip and the editor. */
     label: string;
+    /** Paragraphs: the whole text, shown as a block of at most `textLines` wrapped lines. */
+    text?: string;
+    textLines?: number;
     depth: number;
     /** Which side of the root the node sits on; the root has no side. */
     side?: Side;
@@ -63,6 +66,11 @@ const PREVIEW_MAX_WIDTH = 240;
 export const THUMB_WIDTH = 160;
 export const THUMB_HEIGHT = 120;
 const ROOT_SIZE = 84;
+/** Paragraph blocks: fixed width, 13 px text on 18 px lines, at most PARAGRAPH_MAX_LINES lines. */
+const PARAGRAPH_WIDTH = 280;
+const PARAGRAPH_CHAR_WIDTH = 7;
+const PARAGRAPH_LINE_HEIGHT = 18;
+const PARAGRAPH_MAX_LINES = 6;
 /** Smallest horizontal gap between two depth columns. */
 const GAP_X = 60;
 /** Largest horizontal gap between two depth columns. */
@@ -72,12 +80,28 @@ const FAN_SLOPE = 0.25;
 /** Vertical gap between two stacked subtrees. */
 export const GAP_Y = 16;
 
+/** Paragraph text and the number of lines its block shows. */
+function textData(node: PlainNode): Pick<MdNodeData, 'text' | 'textLines'> {
+    return node.text === undefined ? {} : { text: node.text, textLines: paragraphLines(node.text) };
+}
+
 export function shortLabel(title: string): string {
     return title.length > LABEL_MAX ? `${title.slice(0, LABEL_MAX - 1).trimEnd()}…` : title;
 }
 
+/** Wrapped lines a paragraph's text takes in its block, up to PARAGRAPH_MAX_LINES. */
+export function paragraphLines(text: string): number {
+    const perLine = Math.floor((PARAGRAPH_WIDTH - PADDING_X - 2) / PARAGRAPH_CHAR_WIDTH);
+    const lines = text.split('\n').reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / perLine)), 0);
+    return Math.min(PARAGRAPH_MAX_LINES, lines);
+}
+
 /** Estimated box size before the node is measured. */
-export function estimateSize(title: string, depth: number, preview?: string, media?: string[]): { width: number; height: number } {
+export function estimateSize(title: string, depth: number, preview?: string, media?: string[], text?: string): { width: number; height: number } {
+    if (text !== undefined) {
+        const mediaHeight = media && media.length > 0 ? THUMB_HEIGHT + 6 : 0;
+        return { width: PARAGRAPH_WIDTH, height: paragraphLines(text) * PARAGRAPH_LINE_HEIGHT + 14 + mediaHeight };
+    }
     if (depth === 0) {
         const side = Math.max(ROOT_SIZE, Math.round(shortLabel(title).length * CHAR_WIDTH + PADDING_X));
         return { width: side, height: side };
@@ -117,7 +141,7 @@ function branchEdge(parent: PlainNode, node: PlainNode, color: string, facing: F
 
 /** Height of the block a subtree needs: its children stacked with GAP_Y, or the node itself if taller. */
 function blockHeights(node: PlainNode, depth: number, heights: Map<string, number>): number {
-    const own = estimateSize(node.title, depth, node.preview, node.media).height;
+    const own = estimateSize(node.title, depth, node.preview, node.media, node.text).height;
     const stacked = node.children.reduce((sum, child, index) => sum + blockHeights(child, depth + 1, heights) + (index > 0 ? GAP_Y : 0), 0);
     const height = Math.max(own, stacked);
     heights.set(node.id, height);
@@ -144,7 +168,7 @@ function layoutSide(root: PlainNode, branches: Branch[], side: Side, heights: Ma
 
     /** Places the subtree in the block that starts at `top` and returns the node's centre y. */
     const place = (node: PlainNode, depth: number, color: string, parent: PlainNode, top: number): number => {
-        const size = estimateSize(node.title, depth, node.preview, node.media);
+        const size = estimateSize(node.title, depth, node.preview, node.media, node.text);
         const block = heights.get(node.id)!;
         let centerY = top + block / 2;
         if (node.children.length > 0) {
@@ -191,7 +215,7 @@ function layoutSide(root: PlainNode, branches: Branch[], side: Side, heights: Ma
             id: node.id,
             type: NODE_TYPE,
             position: { x: side === 'right' ? columnX[depth] : -(columnX[depth] + size.width), y: centerY - size.height / 2 },
-            data: { title: node.title, label: shortLabel(node.title), kind: node.kind, preview: node.preview, media: node.media, depth, side, color },
+            data: { title: node.title, label: shortLabel(node.title), ...textData(node), kind: node.kind, preview: node.preview, media: node.media, depth, side, color },
             ...size,
         });
         edges.push(branchEdge(parent, node, color, side));
@@ -295,7 +319,7 @@ function layoutRadial(root: PlainNode): { nodes: MdFlowNode[]; edges: Edge[] } {
     interface Item { node: PlainNode; depth: number; color: string; parent?: PlainNode; size: { width: number; height: number }; angle: number }
     const items = new Map<string, Item>();
     const collect = (node: PlainNode, depth: number, color: string, parent?: PlainNode) => {
-        const item: Item = { node, depth, color, parent, size: estimateSize(node.title, depth, node.preview, node.media), angle: 0 };
+        const item: Item = { node, depth, color, parent, size: estimateSize(node.title, depth, node.preview, node.media, node.text), angle: 0 };
         items.set(node.id, item);
         node.children.forEach((child, index) => collect(child, depth + 1, depth === 0 ? BRANCH_COLORS[index % BRANCH_COLORS.length] : color, node));
     };
@@ -387,7 +411,7 @@ function layoutRadial(root: PlainNode): { nodes: MdFlowNode[]; edges: Edge[] } {
             id: node.id,
             type: NODE_TYPE,
             position: { x: r * Math.cos(angle) - size.width / 2, y: r * Math.sin(angle) - size.height / 2 },
-            data: { title: node.title, label: shortLabel(node.title), kind: node.kind, preview: node.preview, media: node.media, depth, side, color },
+            data: { title: node.title, label: shortLabel(node.title), ...textData(node), kind: node.kind, preview: node.preview, media: node.media, depth, side, color },
             ...size,
         });
         // The edge leaves the parent on the side that faces the child, so it curves along the
