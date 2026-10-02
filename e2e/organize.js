@@ -1,5 +1,5 @@
 // Organizer buttons on a real note: screenshots per layout, the transition sampled over time, overlaps
-// measured on the rendered nodes, the file left untouched; then a drag on Canal.md sampled mid-move.
+// measured on the rendered nodes, the whole map inside the pane, the file left untouched; then a drag on Canal.md sampled mid-move.
 // Usage: node e2e/organize.js [shot-prefix]   (MDMAP_FILE picks the note, default story.md)
 const { connect, sleep, resetVault, reloadPlugin, openEditor, rect, shot, md, view, CANAL } = require('./lib');
 
@@ -56,6 +56,18 @@ async function renderedOverlaps(page) {
   });
 }
 
+/** Nodes whose rendered box falls outside the map pane, and the current zoom. */
+async function outsidePane(page) {
+  return page.evaluate(`(() => {
+    const pane = document.querySelector('.react-flow').getBoundingClientRect();
+    const out = Array.from(document.querySelectorAll('.react-flow__node')).filter(n => {
+      const r = n.getBoundingClientRect();
+      return r.left < pane.left - 0.5 || r.right > pane.right + 0.5 || r.top < pane.top - 0.5 || r.bottom > pane.bottom + 0.5;
+    }).length;
+    return { out, zoom: Number((${view})().editor.instance.getZoom().toFixed(3)) };
+  })()`);
+}
+
 (async () => {
   const ctx = await connect();
   const { page } = ctx;
@@ -63,14 +75,17 @@ async function renderedOverlaps(page) {
   await openEditor(page, FILE);
   const before = await md(page, FILE);
   ctx.drain();
+  const opened = await outsidePane(page);
+  console.log(`on open: zoom ${opened.zoom}, nodes outside the pane ${opened.out} | ${await shot(page, `${PREFIX}-open`)}`);
 
   for (const layout of LAYOUTS) {
     const sampled = await organizeSampled(page, layout, [0, 100, 200, 300, 450, 700, 1200]);
     const p = progress(sampled);
     await sleep(800);
     const overlaps = await renderedOverlaps(page);
+    const fit = await outsidePane(page);
     const f = await shot(page, `${PREFIX}-${layout}`);
-    console.log(`${layout}: moved ${p.moved}px | progress ${p.shares.join(' ')} | rendered nodes ${overlaps.nodes}, overlapping pairs ${overlaps.pairs} | ${f}`);
+    console.log(`${layout}: moved ${p.moved}px | progress ${p.shares.join(' ')} | rendered nodes ${overlaps.nodes}, overlapping pairs ${overlaps.pairs} | zoom ${fit.zoom}, nodes outside the pane ${fit.out} | ${f}`);
   }
   console.log(`${FILE} unchanged:`, before === (await md(page, FILE)), '| writes:', ctx.drain().filter(l => l.includes('wrote')).length);
 

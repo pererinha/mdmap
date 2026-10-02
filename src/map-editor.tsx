@@ -133,7 +133,8 @@ function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
 
 const nodeTypes = { [NODE_TYPE]: MdNode };
 
-const MIN_ZOOM = 0.2;
+/** Lowest zoom: low enough that fitting the view shows the whole map even for notes with hundreds of nodes. */
+const MIN_ZOOM = 0.01;
 const FIT_PADDING = 0.1;
 const FIT_MAX_ZOOM = 1.25;
 /** How long the organizer buttons take to move the nodes and the viewport. */
