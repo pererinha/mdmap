@@ -1,7 +1,8 @@
 /*
  * React Flow editor for one tree. The tree is the state; node positions are
  * derived from it on every change. A node the user dragged keeps its offset
- * from its parent, and its subtree moves with it. Keys:
+ * from its parent, and its subtree moves with it. The organizer buttons glide
+ * every node to the new layout and the viewport to its bounds. Keys:
  * double-click edits, Tab adds a child, Enter adds a sibling, Delete removes,
  * Alt+Up/Down reorders, drag onto a node reparents, Cmd+Z / Cmd+Shift+Z
  * undo and redo.
@@ -19,6 +20,7 @@ import {
     useEdgesState,
     useNodesInitialized,
     useNodesState,
+    getViewportForBounds,
     useReactFlow,
 } from '@xyflow/react';
 import type { Edge, Node, NodeProps, OnNodeDrag, OnSelectionChangeFunc, ReactFlowInstance } from '@xyflow/react';
@@ -131,6 +133,16 @@ function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
 
 const nodeTypes = { [NODE_TYPE]: MdNode };
 
+const MIN_ZOOM = 0.2;
+const FIT_PADDING = 0.1;
+const FIT_MAX_ZOOM = 1.25;
+/** How long the organizer buttons take to move the nodes and the viewport. */
+const ORGANIZE_MS = 450;
+
+function easeInOutCubic(t: number): number {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
 const ORGANIZERS: Array<{ layout: Layout; label: string }> = [
     { layout: 'right', label: 'Tidy tree' },
     { layout: 'center', label: 'Center root' },
@@ -148,12 +160,23 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
     const [nodes, setNodes, onNodesChange] = useNodesState<EditorNode>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    /** Frame request of the running organizer animation, if any. */
+    const animation = useRef<number | null>(null);
 
-    const render = useCallback(
-        (root: PlainNode) => {
+    const stopAnimation = useCallback(() => {
+        if (animation.current !== null) {
+            cancelAnimationFrame(animation.current);
+            animation.current = null;
+        }
+    }, []);
+
+    /** Editor nodes and edges for the tree in the current layout and saved positions. */
+    const build = useCallback(
+        (root: PlainNode): { nodes: EditorNode[]; edges: Edge[] } => {
             const laid = layoutTree(root, layoutRef.current, positionsRef.current);
-            setNodes(
-                laid.nodes.map(node => ({
+            return {
+                nodes: laid.nodes.map(node => ({
                     ...node,
                     selected: node.id === selectedId.current,
                     data: {
@@ -168,11 +191,76 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                             .map(item => ({ link: item.link, ...item.resolved! })),
                     },
                 })),
-            );
-            setEdges(laid.edges);
+                edges: laid.edges,
+            };
         },
-        [setNodes, setEdges, resolveMedia, onOpenMedia],
+        [resolveMedia, onOpenMedia],
     );
+
+    const render = useCallback(
+        (root: PlainNode) => {
+            stopAnimation();
+            const built = build(root);
+            setNodes(built.nodes);
+            setEdges(built.edges);
+        },
+        [stopAnimation, build, setNodes, setEdges],
+    );
+
+    /**
+     * Moves every node from where it is now to its place in `target`, and the
+     * viewport to the bounds of `target`, in ORGANIZE_MS. Positions are relative
+     * to the parent, so interpolating them moves each subtree as one piece.
+     */
+    const glide = useCallback(
+        (target: EditorNode[]) => {
+            stopAnimation();
+            const from = new Map(flow.getNodes().map(node => [node.id, node.position]));
+            const started = performance.now();
+            const frame = (now: number) => {
+                const t = Math.min(1, (now - started) / ORGANIZE_MS);
+                const k = easeInOutCubic(t);
+                setNodes(
+                    target.map(node => {
+                        const start = from.get(node.id);
+                        return start && t < 1
+                            ? { ...node, position: { x: start.x + (node.position.x - start.x) * k, y: start.y + (node.position.y - start.y) * k } }
+                            : node;
+                    }),
+                );
+                animation.current = t < 1 ? requestAnimationFrame(frame) : null;
+            };
+            frame(started);
+
+            // Bounds of the final layout: canvas positions follow the parent chain; parents come first.
+            const canvas = new Map<string, XY>();
+            let minX = Infinity;
+            let minY = Infinity;
+            let maxX = -Infinity;
+            let maxY = -Infinity;
+            for (const node of target) {
+                const parent = node.parentId ? canvas.get(node.parentId) : undefined;
+                const at = parent ? { x: parent.x + node.position.x, y: parent.y + node.position.y } : node.position;
+                canvas.set(node.id, at);
+                const measured = flow.getInternalNode(node.id)?.measured;
+                const width = measured?.width ?? node.width ?? 0;
+                const height = measured?.height ?? node.height ?? 0;
+                minX = Math.min(minX, at.x);
+                minY = Math.min(minY, at.y);
+                maxX = Math.max(maxX, at.x + width);
+                maxY = Math.max(maxY, at.y + height);
+            }
+            const container = containerRef.current;
+            if (container && target.length > 0) {
+                const bounds = { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+                const viewport = getViewportForBounds(bounds, container.clientWidth, container.clientHeight, MIN_ZOOM, FIT_MAX_ZOOM, FIT_PADDING);
+                flow.setViewport(viewport, { duration: ORGANIZE_MS });
+            }
+        },
+        [flow, setNodes, stopAnimation],
+    );
+
+    useEffect(() => stopAnimation, [stopAnimation]);
 
     useEffect(() => {
         render(rootRef.current);
@@ -185,7 +273,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
         if (initialized && !fitted.current) {
             fitted.current = true;
             // The split that hosts the view may still be resizing on its first frames.
-            setTimeout(() => flow.fitView({ padding: 0.1, maxZoom: 1.25 }), 100);
+            setTimeout(() => flow.fitView({ padding: FIT_PADDING, maxZoom: FIT_MAX_ZOOM }), 100);
         }
     }, [initialized, flow]);
 
@@ -202,17 +290,18 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
             organize(layout) {
                 layoutRef.current = layout;
                 positionsRef.current = {};
-                render(rootRef.current);
+                const built = build(rootRef.current);
+                setEdges(built.edges);
+                glide(built.nodes);
                 onChange(rootRef.current, `organize:${layout}`, {});
-                setTimeout(() => flow.fitView({ padding: 0.1, maxZoom: 1.25 }), 50);
             },
             fit() {
-                return flow.fitView({ padding: 0.1, maxZoom: 1.25 });
+                return flow.fitView({ padding: FIT_PADDING, maxZoom: FIT_MAX_ZOOM });
             },
             instance: flow,
         };
         onReady(handleRef.current);
-    }, [onReady, render, flow, onChange]);
+    }, [onReady, render, build, glide, setEdges, flow, onChange]);
 
     /** Replaces the tree, records history and notifies the view. */
     const apply = useCallback(
@@ -267,6 +356,13 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
     const onSelectionChange = useCallback<OnSelectionChangeFunc<EditorNode>>(({ nodes: selected }) => {
         selectedId.current = selected[0]?.id ?? null;
     }, []);
+
+    // A node grabbed while the organizer animation runs: finish it, so the frames stop moving nodes under the pointer.
+    const onNodeDragStart = useCallback<OnNodeDrag<EditorNode>>(() => {
+        if (animation.current !== null) {
+            render(rootRef.current);
+        }
+    }, [render]);
 
     const onNodeDragStop = useCallback<OnNodeDrag<EditorNode>>(
         (_event, node) => {
@@ -348,7 +444,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
     );
 
     return (
-        <div className="mdmap-root" tabIndex={0} onKeyDown={onKeyDown}>
+        <div className="mdmap-root" ref={containerRef} tabIndex={0} onKeyDown={onKeyDown}>
             <ReactFlow
                 nodes={displayNodes}
                 edges={edges}
@@ -357,6 +453,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 onEdgesChange={onEdgesChange}
                 onSelectionChange={onSelectionChange}
                 onNodeDoubleClick={(_event, node) => startEditing(node.id)}
+                onNodeDragStart={onNodeDragStart}
                 onNodeDragStop={onNodeDragStop}
                 nodeDragThreshold={4}
                 deleteKeyCode={null}
@@ -364,7 +461,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 multiSelectionKeyCode={null}
                 nodesConnectable={false}
                 edgesFocusable={false}
-                minZoom={0.2}
+                minZoom={MIN_ZOOM}
                 maxZoom={2}
             >
                 <Background />
