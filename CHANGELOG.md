@@ -8,8 +8,10 @@ First release.
   the nodes; paragraphs, lists, embeds and fenced code under a heading are its
   body and move with it. Heading levels follow the tree depth. Unchanged notes
   round-trip byte for byte.
-- List items under a heading are child nodes, nested items nest. The setting
-  *List items as nodes* turns this off.
+- List items under a heading are child nodes, nested items nest. Paragraphs
+  are nodes shown as blocks of wrapped text, and a list right after a
+  paragraph hangs from it. The setting *List items and paragraphs as nodes*
+  turns both off.
 - Rename (double-click), add child (Tab), add sibling (Enter), delete, reorder
   (Alt+Up/Down), move to another parent (drag onto it), undo and redo.
 - Two-way sync: the map writes the note; edits to the note update the map and

@@ -13,6 +13,12 @@ are the nodes, and every change in the map is written back to the Markdown.
   named after the file.
 - **List items as nodes.** List items under a heading become its children
   (nested items nest). A setting turns this off.
+- **Paragraphs as text blocks.** Each paragraph under a heading is a node
+  shown as a block of wrapped text (up to six lines; the full text is in the
+  tooltip). A list right after a paragraph hangs from it, so `Rules:`
+  followed by a numbered list is one node with the rules as its children.
+  Tables, code, quotes and embeds stay with the node before them. The same
+  setting as list items turns this off.
 - **Body preview and media.** The first line of a node's body is shown under
   its title. Image and video embeds in the body are shown inside the node;
   clicking an image opens it in Obsidian.
@@ -57,9 +63,9 @@ are the nodes, and every change in the map is written back to the Markdown.
 
 ## Settings
 
-**List items as nodes** (on by default, in *Settings → mdmap*). When off,
-only headings are nodes and list items stay in the heading's body. Takes
-effect when a mind map is opened.
+**List items and paragraphs as nodes** (on by default, in *Settings →
+mdmap*). When off, only headings are nodes and list items and paragraphs
+stay in the heading's body. Takes effect when a mind map is opened.
 
 **Show clicked node in the note** (on by default, in the gear menu of the
 map's header). When off, clicking a node only selects it in the map.
