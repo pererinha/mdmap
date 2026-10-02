@@ -1,9 +1,10 @@
-import { ItemView, TFile, WorkspaceLeaf } from 'obsidian';
+import { ItemView, MarkdownView, Menu, TFile, WorkspaceLeaf } from 'obsidian';
 import { createRoot, Root } from 'react-dom/client';
 import reactFlowCss from '@xyflow/react/dist/style.css';
 import { EditorSync, injectCss, whenSized } from './editor-sync';
 import { PlainNode, XY } from './md-tree';
 import { MapEditor, MapEditorHandle, ResolvedMedia } from './map-editor';
+import { clearReveal, revealLine } from './reveal';
 import { MdmapSettings } from './settings';
 
 export const VIEW_TYPE = 'mdmap';
@@ -15,7 +16,11 @@ export default class EditorView extends ItemView {
     private reactRoot: Root;
     private editor: MapEditorHandle;
 
-    constructor(leaf: WorkspaceLeaf, private settings: MdmapSettings) {
+    constructor(
+        leaf: WorkspaceLeaf,
+        private settings: MdmapSettings,
+        private saveSettings: () => Promise<void>,
+    ) {
         super(leaf);
     }
 
@@ -49,6 +54,42 @@ export default class EditorView extends ItemView {
         this.contentEl.addClass('mdmap-content');
         this.host = this.contentEl.createDiv({ cls: 'mdmap-host' });
         this.registerEvent(this.app.workspace.on('resize', () => this.editor?.fit()));
+        this.addAction('settings', 'Mind map settings', evt => this.showSettings(evt));
+    }
+
+    /** The view's own settings, as a menu of toggles under the gear in the view header. */
+    private showSettings(evt: MouseEvent) {
+        new Menu()
+            .addItem(item =>
+                item
+                    .setTitle('Show clicked node in the note')
+                    .setChecked(this.settings.revealInNote)
+                    .onClick(async () => {
+                        this.settings.revealInNote = !this.settings.revealInNote;
+                        await this.saveSettings();
+                        if (!this.settings.revealInNote) {
+                            this.reveal(null);
+                        }
+                    }),
+            )
+            .showAtMouseEvent(evt);
+    }
+
+    /** Scrolls the note open next to the map to the node's line and highlights it; null clears the highlight. */
+    private reveal(id: string | null) {
+        const note = this.app.workspace
+            .getLeavesOfType('markdown')
+            .map(leaf => leaf.view)
+            .find((view): view is MarkdownView => view instanceof MarkdownView && view.file?.path === this.filePath);
+        if (!note) {
+            return;
+        }
+        const line = id !== null && this.settings.revealInNote ? this.sync.lineOf(id) : undefined;
+        if (line === undefined) {
+            clearReveal(note);
+        } else {
+            revealLine(note, line);
+        }
     }
 
     async onClose() {
@@ -80,6 +121,7 @@ export default class EditorView extends ItemView {
                 onReady={handle => (this.editor = handle)}
                 resolveMedia={link => this.resolveMedia(link)}
                 onOpenMedia={link => this.app.workspace.openLinkText(link, this.filePath, true)}
+                onClickNode={id => this.reveal(id)}
             />,
         );
         this.sync.watch();

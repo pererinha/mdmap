@@ -262,7 +262,18 @@ function adoptIds(node: MdNode, previous: MdNode): void {
 }
 
 export function serializeMarkdown(tree: MdTree): string {
+    return writeLines(tree).lines.join('\n');
+}
+
+/** Line of each node's heading or list item in the serialized note, 0-based, by node id. */
+export function nodeLines(tree: MdTree): Map<string, number> {
+    return writeLines(tree).lineOf;
+}
+
+/** The note's lines, and where each node's own line went. */
+function writeLines(tree: MdTree): { lines: string[]; lineOf: Map<string, number> } {
     const out: string[] = [...tree.preamble];
+    const lineOf = new Map<string, number>();
     const gapFor = (parent: MdNode, child: MdNode, firstHeading: boolean) =>
         (firstHeading ? parent.gapFirstChild : child.gapBefore) ?? tree.defaultGap;
 
@@ -281,6 +292,7 @@ export function serializeMarkdown(tree: MdTree): string {
         for (let i = 0; i < gap; i++) {
             out.push('');
         }
+        lineOf.set(node.id, out.length);
         out.push(node.title === '' ? '#'.repeat(level) : `${'#'.repeat(level)} ${node.title}`);
         out.push(...node.body);
         emitChildren(node, level + 1, '');
@@ -288,6 +300,7 @@ export function serializeMarkdown(tree: MdTree): string {
     const emitItem = (node: MdNode, parentIndent: string) => {
         const marker = node.marker ?? '-';
         const indent = node.indent ?? parentIndent;
+        lineOf.set(node.id, out.length);
         out.push(`${indent}${marker} ${node.title}`);
         out.push(...node.body);
         emitChildren(node, 0, indent + ' '.repeat(marker.length + 1));
@@ -308,7 +321,7 @@ export function serializeMarkdown(tree: MdTree): string {
     for (let i = 0; i < tree.trailingBlanks; i++) {
         out.push('');
     }
-    return out.join('\n');
+    return { lines: out, lineOf };
 }
 
 /**

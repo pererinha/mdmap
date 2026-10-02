@@ -8,7 +8,7 @@
  */
 
 import { App, EventRef, TFile } from 'obsidian';
-import { MdTree, ParseOptions, PlainNode, XY, mapRoot, parseMarkdown, positionsToIds, reconcile, serializeMarkdown } from './md-tree';
+import { MdTree, ParseOptions, PlainNode, XY, mapRoot, nodeLines, parseMarkdown, positionsToIds, reconcile, serializeMarkdown } from './md-tree';
 
 export class EditorSync {
     private tree: MdTree;
@@ -36,6 +36,11 @@ export class EditorSync {
     /** The file's saved positions, keyed by node id of the current root. */
     positions(): Record<string, XY> {
         return positionsToIds(this.root(), this.tree.positions);
+    }
+
+    /** Line of the node's heading or list item in the file, 0-based; undefined for a root that has no line of its own. */
+    lineOf(id: string): number | undefined {
+        return nodeLines(this.tree).get(id);
     }
 
     /** Returns true when the file was written. */

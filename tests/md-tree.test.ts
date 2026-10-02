@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { mapRoot, mediaLinks, parseMarkdown, positionsToIds, reconcile, serializeMarkdown, PlainNode } from '../src/md-tree';
+import { mapRoot, mediaLinks, nodeLines, parseMarkdown, positionsToIds, reconcile, serializeMarkdown, MdNode, PlainNode } from '../src/md-tree';
 
 const CANAL = [
     '# Canal',
@@ -304,5 +304,49 @@ describe('md-tree positions block', () => {
         artigos.title = 'Papers';
         const out = serializeMarkdown(reconcile(tree, root, { [artigos.id]: { x: 1, y: 2 } }));
         expect(out).to.contain('%% mindmap-positions\nPesquisa/Papers: 1,2\n%%');
+    });
+});
+
+describe('md-tree node lines', () => {
+    const fs = require('fs');
+    const notes: Array<[string, string]> = [
+        ['Canal', CANAL],
+        ['story.md', fs.readFileSync(__dirname + '/fixtures-story.md', 'utf8')],
+        ['Canal with a positions block', CANAL + '\n%% mindmap-positions\nPesquisa/Artigos: 120,-40\n%%\n'],
+    ];
+
+    for (const [name, md] of notes) {
+        it(`${name}: every node's line is its own heading or list item, in document order`, () => {
+            const tree = parseMarkdown(md);
+            const lines = md.split('\n');
+            const lineOf = nodeLines(tree);
+            const order: number[] = [];
+            const visit = (node: MdNode) => {
+                const line = lineOf.get(node.id);
+                expect(line, node.title).to.be.a('number');
+                const text = lines[line!];
+                const own = node.kind === 'list' ? /^\s*([-*+]|\d+[.)])\s(.*)$/.exec(text)?.[2] : /^#{1,6}(?:\s+(.*))?$/.exec(text)?.[1] ?? '';
+                expect(own, `line ${line} of ${node.title}`).to.equal(node.title);
+                order.push(line!);
+                node.children.forEach(visit);
+            };
+            tree.root.children.forEach(visit);
+            expect(order.length).to.be.greaterThan(0);
+            expect(order).to.deep.equal([...order].sort((a, b) => a - b));
+        });
+    }
+
+    it('follows the note after the map changes it', () => {
+        const tree = parseMarkdown(CANAL);
+        const root = mapRoot(tree, 'f');
+        const artigos = find(root, 'Artigos')!;
+        const roteiro = find(root, 'Roteiro')!;
+        // Move Artigos under Roteiro, as in CANAL_AFTER_MOVE.
+        find(root, 'Pesquisa')!.children = find(root, 'Pesquisa')!.children.filter(c => c.id !== artigos.id);
+        roteiro.children.push(artigos);
+        const moved = reconcile(tree, root);
+        const md = serializeMarkdown(moved);
+        expect(md.split('\n')[nodeLines(moved).get(artigos.id)!]).to.equal('### Artigos');
+        expect(nodeLines(moved).get(artigos.id)).to.equal(md.split('\n').indexOf('### Artigos'));
     });
 });

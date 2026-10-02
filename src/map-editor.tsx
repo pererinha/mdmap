@@ -52,6 +52,8 @@ interface MapEditorProps {
     /** Turns an embed link into something the node can show; null hides it. */
     resolveMedia?(link: string): ResolvedMedia | null;
     onOpenMedia?(link: string): void;
+    /** A click on a node, or null for a click on empty canvas. */
+    onClickNode?(id: string | null): void;
 }
 
 interface EditorNodeData extends MdNodeData {
@@ -150,7 +152,7 @@ const ORGANIZERS: Array<{ layout: Layout; label: string }> = [
     { layout: 'radial', label: 'Radial' },
 ];
 
-function Editor({ root: initialRoot, positions: initialPositions, onChange, onReady, resolveMedia, onOpenMedia }: MapEditorProps) {
+function Editor({ root: initialRoot, positions: initialPositions, onChange, onReady, resolveMedia, onOpenMedia, onClickNode }: MapEditorProps) {
     const flow = useReactFlow<EditorNode>();
     const rootRef = useRef(initialRoot);
     const positionsRef = useRef<Record<string, XY>>(initialPositions ?? {});
@@ -453,6 +455,8 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onSelectionChange={onSelectionChange}
+                onNodeClick={(_event, node) => onClickNode?.(node.id)}
+                onPaneClick={() => onClickNode?.(null)}
                 onNodeDoubleClick={(_event, node) => startEditing(node.id)}
                 onNodeDragStart={onNodeDragStart}
                 onNodeDragStop={onNodeDragStop}

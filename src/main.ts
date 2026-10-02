@@ -4,13 +4,15 @@ import { mapRoot, parseMarkdown } from './md-tree';
 import { toMermaidMindmap } from './mermaid';
 import { DEFAULT_SETTINGS, MdmapSettings } from './settings';
 import { MdmapSettingTab } from './settings-tab';
+import { revealField } from './reveal';
 
 export default class MdmapPlugin extends Plugin {
     settings: MdmapSettings;
 
     async onload() {
         this.settings = { ...DEFAULT_SETTINGS, ...(await this.loadData()) };
-        this.registerView(VIEW_TYPE, leaf => new EditorView(leaf, this.settings));
+        this.registerView(VIEW_TYPE, leaf => new EditorView(leaf, this.settings, () => this.saveSettings()));
+        this.registerEditorExtension(revealField);
         this.addCommand({
             id: 'edit-mind-map',
             name: 'Edit current note as mind map',

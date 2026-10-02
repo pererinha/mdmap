@@ -32,6 +32,7 @@ node e2e/lists.js      # list items as nodes, and the setting that turns them of
 node e2e/positions.js  # free positions, the positions block, Tidy / Center / Radial
 node e2e/story.js      # story.md in light and dark theme, thumbnails, attribution, no write
 node e2e/organize.js   # organizer buttons on story.md: transition sampled over time, overlaps, drag follows the pointer
+node e2e/reveal.js     # clicking a node highlights its line in the note; the gear in the view header turns it off
 ```
 
 Each scenario prints the content of `Canal.md` after each step and saves

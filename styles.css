@@ -65,6 +65,10 @@
 .mdmap-node.mdmap-selected {
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--mdmap-branch) 45%, transparent);
 }
+/* The note's line for the node last clicked in the map. */
+.markdown-source-view .cm-line.mdmap-revealed {
+    background-color: var(--text-highlight-bg);
+}
 .mdmap-handle {
     opacity: 0;
     pointer-events: none;
