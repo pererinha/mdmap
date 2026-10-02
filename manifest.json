@@ -6,5 +6,6 @@
   "description": "Edit the current note as a mind map that writes back to the note: headings, list items and paragraphs become nodes. Copy a branch as Markdown or the whole note as a Mermaid mindmap.",
   "author": "pererinha",
   "authorUrl": "https://github.com/pererinha",
+  "fundingUrl": "https://github.com/sponsors/pererinha",
   "isDesktopOnly": false
 }
