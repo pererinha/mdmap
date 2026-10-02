@@ -3,7 +3,7 @@
   "name": "mdmap",
   "version": "1.0.0",
   "minAppVersion": "1.8.9",
-  "description": "Edit the current note as a mind map that writes back to the note: headings, list items and paragraphs become nodes. Copy a branch as Markdown or the whole note as a Mermaid mindmap.",
+  "description": "Edit notes as mind maps with two-way Markdown sync.",
   "author": "pererinha",
   "authorUrl": "https://github.com/pererinha",
   "fundingUrl": "https://github.com/sponsors/pererinha",
