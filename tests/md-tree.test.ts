@@ -128,15 +128,30 @@ describe('md-tree with a real note (story.md)', () => {
         expect(serializeMarkdown(parseMarkdown(story))).to.equal(story);
     });
 
-    it('turns list items into nodes and keeps paragraphs as body with a preview', () => {
+    it('turns list items and paragraphs into nodes', () => {
         const root = mapRoot(parseMarkdown(story), 'story');
         expect(root.title).to.equal('story');
         expect(root.children.map(c => c.title)).to.deep.equal(['story vs narrative', 'what is a story', 'the spine', 'summary']);
         const narrative = find(root, 'a narrative')!;
         expect(narrative.children.map(c => c.title)).to.deep.equal(['about CHARACTERS ', 'dealing with a PROBLEM', 'unified by a PREMISSE ', 'told in a STRUCTURED ORDER']);
         expect(narrative.children.every(c => c.kind === 'list')).to.equal(true);
-        expect(find(root, 'narrative')!.preview).to.equal('series of events communicated in a logical order');
-        expect(find(root, 'narrative')!.children.map(c => c.title)).to.deep.equal(['examples']);
+        const series = find(root, 'narrative')!.children;
+        expect(series.map(c => [c.title, c.kind])).to.deep.equal([
+            ['series of events communicated in a logical order', 'paragraph'],
+            ['examples', 'heading'],
+        ]);
+        expect(series[0].text).to.equal('series of events communicated in a logical order');
+        expect(find(root, 'narrative')!.preview).to.equal(undefined);
+    });
+
+    it('keeps a paragraph\'s following lines in its text and an embed under a heading on the heading', () => {
+        const root = mapRoot(parseMarkdown(story), 'story');
+        const path = find(root, '3) the path of action')!;
+        expect(path.children.map(c => c.kind)).to.deep.equal(['paragraph']);
+        expect(path.children[0].text).to.equal(
+            'everything the protagonist do to overcome the problem and get to the goal\nit could have plot twists and something\nbut it should stay on track',
+        );
+        expect(find(root, '4) the protagonist main story conflict')!.media).to.have.length(1);
     });
 
     it('keeps list items as body when the option is off', () => {
@@ -155,6 +170,82 @@ describe('md-tree with a real note (story.md)', () => {
         expect(out).to.contain('### summary\nthe protagonist encounters');
         expect(out).to.contain('#### important\na story without a *problem*');
         expect(out.split('\n').length).to.equal(story.split('\n').length);
+    });
+});
+
+describe('md-tree paragraphs', () => {
+    const RULES = [
+        '# Vozes',
+        '',
+        '- item solto do título',
+        '',
+        'Narrador e mascote: português sem sotaque.',
+        '',
+        '|Pensador|Sotaque|',
+        '|---|---|',
+        '|Epicuro|grego|',
+        '',
+        '```',
+        'code stays in a body',
+        '```',
+        '',
+        'Regras das falas:',
+        '',
+        '1. [documentado]: paráfrase própria.',
+        '2. [dramatizado]: frase criada para o debate.',
+        '',
+    ].join('\n');
+
+    it('round-trips byte for byte', () => {
+        expect(serializeMarkdown(parseMarkdown(RULES))).to.equal(RULES);
+    });
+
+    it('makes "Regras das falas:" a node with the rules as its children and keeps the table and code with the paragraph before them', () => {
+        const root = mapRoot(parseMarkdown(RULES), 'f');
+        expect(root.children.map(c => [c.title, c.kind])).to.deep.equal([
+            ['item solto do título', 'list'],
+            ['Narrador e mascote: português sem sotaque.', 'paragraph'],
+            ['Regras das falas:', 'paragraph'],
+        ]);
+        expect(find(root, 'Regras das falas:')!.children.map(c => [c.title, c.kind])).to.deep.equal([
+            ['[documentado]: paráfrase própria.', 'list'],
+            ['[dramatizado]: frase criada para o debate.', 'list'],
+        ]);
+        const narrador = parseMarkdown(RULES).root.children[0].children[1];
+        expect(narrador.body).to.deep.equal(['', '|Pensador|Sotaque|', '|---|---|', '|Epicuro|grego|', '', '```', 'code stays in a body', '```', '']);
+    });
+
+    it('a new child of a paragraph is a list item right under it, and it round-trips', () => {
+        const tree = parseMarkdown(RULES);
+        const root = mapRoot(tree, 'f');
+        find(root, 'Regras das falas:')!.children.push({ id: 'n1', title: 'nova regra', children: [] });
+        const out = serializeMarkdown(reconcile(tree, root));
+        // A new item takes its marker from the item before it.
+        expect(out).to.contain('2. [dramatizado]: frase criada para o debate.\n2. nova regra\n');
+        const again = mapRoot(parseMarkdown(out), 'f');
+        expect(find(again, 'Regras das falas:')!.children.map(c => c.title)).to.include('nova regra');
+    });
+
+    it("an item placed right after a paragraph becomes that paragraph's child, as the note will read back", () => {
+        const tree = parseMarkdown(RULES);
+        const root = mapRoot(tree, 'f');
+        const loose = find(root, 'item solto do título')!;
+        root.children = [...root.children.filter(c => c !== loose), loose];
+        const moved = reconcile(tree, root);
+        expect(find(mapRoot(moved, 'f'), 'Regras das falas:')!.children.map(c => c.title)).to.include('item solto do título');
+        const reread = mapRoot(parseMarkdown(serializeMarkdown(moved)), 'f');
+        expect(find(reread, 'Regras das falas:')!.children.map(c => c.title)).to.include('item solto do título');
+    });
+
+    it('a moved paragraph keeps its text and gets the blank line it needs', () => {
+        const tree = parseMarkdown(RULES);
+        const root = mapRoot(tree, 'f');
+        const narrador = find(root, 'Narrador e mascote: português sem sotaque.')!;
+        root.children = [...root.children.filter(c => c !== narrador), narrador];
+        const out = serializeMarkdown(reconcile(tree, root));
+        expect(out).to.contain('2. [dramatizado]: frase criada para o debate.\n\nNarrador e mascote: português sem sotaque.\n\n|Pensador|Sotaque|');
+        const reread = mapRoot(parseMarkdown(out), 'f');
+        expect(reread.children.map(c => c.title)).to.deep.equal(['item solto do título', 'Regras das falas:', 'Narrador e mascote: português sem sotaque.']);
     });
 });
 
@@ -180,13 +271,16 @@ describe('md-tree list items', () => {
         expect(serializeMarkdown(parseMarkdown(NOTE))).to.equal(NOTE);
     });
 
-    it('nests items by indentation and keeps the paragraphs as body', () => {
+    it('nests items by indentation under the paragraph before them; the closing paragraph is its own node', () => {
         const root = mapRoot(parseMarkdown(NOTE), 'note');
         const plan = find(root, 'Plan')!;
-        expect(plan.preview).to.equal('intro paragraph');
-        expect(plan.children.map(c => c.title)).to.deep.equal(['first', 'second', 'third']);
+        expect(plan.children.map(c => [c.title, c.kind])).to.deep.equal([
+            ['intro paragraph', 'paragraph'],
+            ['closing paragraph', 'paragraph'],
+        ]);
+        expect(find(root, 'intro paragraph')!.children.map(c => c.title)).to.deep.equal(['first', 'second', 'third']);
         expect(find(root, 'second')!.children.map(c => c.title)).to.deep.equal(['nested']);
-        expect(find(root, 'third')!.preview).to.equal('closing paragraph');
+        expect(find(root, 'third')!.preview).to.equal(undefined);
     });
 
     it('renames a list item in place', () => {
@@ -199,28 +293,28 @@ describe('md-tree list items', () => {
     it('adds a list item after a sibling and a nested item under an item', () => {
         const tree = parseMarkdown(NOTE);
         const root = mapRoot(tree, 'note');
-        const plan = find(root, 'Plan')!;
-        plan.children.splice(1, 0, { id: 'n1', title: 'inserted', kind: 'list', children: [] });
+        const intro = find(root, 'intro paragraph')!;
+        intro.children.splice(1, 0, { id: 'n1', title: 'inserted', kind: 'list', children: [] });
         find(root, 'nested')!.children.push({ id: 'n2', title: 'deeper', children: [] });
         const out = serializeMarkdown(reconcile(tree, root));
         expect(out).to.contain('- first\n- inserted\n- second\n  - nested\n    - deeper\n- third');
     });
 
-    it('deletes a list item together with its paragraph', () => {
+    it('deletes a list item and leaves the paragraph after it', () => {
         const tree = parseMarkdown(NOTE);
         const root = mapRoot(tree, 'note');
-        const plan = find(root, 'Plan')!;
-        plan.children = plan.children.filter(c => c.title !== 'third');
-        expect(serializeMarkdown(reconcile(tree, root))).to.equal(NOTE.replace('- third\n\nclosing paragraph\n', ''));
+        const intro = find(root, 'intro paragraph')!;
+        intro.children = intro.children.filter(c => c.title !== 'third');
+        expect(serializeMarkdown(reconcile(tree, root))).to.equal(NOTE.replace('- third\n', ''));
     });
 
     it('moves a list item under another heading, after that heading\'s items', () => {
         const tree = parseMarkdown(NOTE);
         const root = mapRoot(tree, 'note');
-        const plan = find(root, 'Plan')!;
+        const intro = find(root, 'intro paragraph')!;
         const other = find(root, 'Other')!;
         const second = find(root, 'second')!;
-        plan.children = plan.children.filter(c => c !== second);
+        intro.children = intro.children.filter(c => c !== second);
         other.children.unshift(second);
         const out = serializeMarkdown(reconcile(tree, root));
         expect(out).to.contain('## Other\n- second\n  - nested\n- alpha\n');
@@ -237,7 +331,8 @@ describe('md-tree list items', () => {
         expect(serializeMarkdown(reconcile(tree, root))).to.equal(md);
         find(root, 'one')!.children.push(b);
         a.children = a.children.filter(c => c !== b);
-        expect(serializeMarkdown(reconcile(tree, root))).to.equal('# N\n\n## A\n- one\n  - B\nbody of b\n');
+        // B's paragraph stays a paragraph, indented into the item, so its text gains no list marker.
+        expect(serializeMarkdown(reconcile(tree, root))).to.equal('# N\n\n## A\n- one\n  - B\n    body of b\n');
     });
 
     it('a new child of a heading is a heading, a new child of an item is an item', () => {
@@ -316,7 +411,7 @@ describe('md-tree node lines', () => {
     ];
 
     for (const [name, md] of notes) {
-        it(`${name}: every node's line is its own heading or list item, in document order`, () => {
+        it(`${name}: every node's line is its own heading, list item or paragraph, in document order`, () => {
             const tree = parseMarkdown(md);
             const lines = md.split('\n');
             const lineOf = nodeLines(tree);
@@ -325,7 +420,8 @@ describe('md-tree node lines', () => {
                 const line = lineOf.get(node.id);
                 expect(line, node.title).to.be.a('number');
                 const text = lines[line!];
-                const own = node.kind === 'list' ? /^\s*([-*+]|\d+[.)])\s(.*)$/.exec(text)?.[2] : /^#{1,6}(?:\s+(.*))?$/.exec(text)?.[1] ?? '';
+                const own =
+                    node.kind === 'list' ? /^\s*([-*+]|\d+[.)])\s(.*)$/.exec(text)?.[2] : node.kind === 'paragraph' ? text : /^#{1,6}(?:\s+(.*))?$/.exec(text)?.[1] ?? '';
                 expect(own, `line ${line} of ${node.title}`).to.equal(node.title);
                 order.push(line!);
                 node.children.forEach(visit);

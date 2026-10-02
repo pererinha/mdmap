@@ -6,11 +6,17 @@
  * the node when it moves. Heading levels are recomputed from tree depth on
  * serialization, so moving a node under a new parent re-levels its subtree.
  *
- * List items in a heading's body become nodes too (kind "list"), nested by
- * indentation. Lines before the first item stay the heading's body; lines
- * after an item that are not items themselves (continuations, blank lines,
- * paragraphs) are the body of that item and travel with it. Under a heading,
- * list children come before heading children, as in the document.
+ * List items and paragraphs in a heading's body become nodes too (kinds
+ * "list" and "paragraph"). Items nest by indentation. A paragraph starts at an
+ * unindented line that opens the body or follows a blank line; its first line
+ * is the node's title and the rest of the paragraph is its body. A list that
+ * comes right after a paragraph (blank lines aside) belongs to that paragraph,
+ * so "Rules:" followed by a numbered list is one node with the rules as its
+ * children. Everything else (blank lines, continuation and indented lines,
+ * tables, code, quotes, embeds) stays in the body of the node before it and
+ * travels with it; lines before the first such node stay the heading's body.
+ * Under a heading, items and paragraphs come before heading children, as in
+ * the document.
  *
  * Node positions the user dragged are kept at the end of the note in an
  * Obsidian comment block, keyed by the node's title path. Each value is the
@@ -30,7 +36,7 @@
  * byte.
  */
 
-export type NodeKind = 'heading' | 'list';
+export type NodeKind = 'heading' | 'list' | 'paragraph';
 
 export interface MdNode {
     id: string;
@@ -86,10 +92,12 @@ export interface PlainNode {
     preview?: string;
     /** Embeds in the body, as written: the link target of ![[file]] or ![alt](url). */
     media?: string[];
+    /** Paragraphs: the paragraph's whole text, its lines joined with newlines, for display only. */
+    text?: string;
 }
 
 export interface ParseOptions {
-    /** Turn list items into nodes (default true). */
+    /** Turn list items and paragraphs into nodes (default true). */
     listItems?: boolean;
 }
 
@@ -178,7 +186,7 @@ export function parseMarkdown(md: string, previous?: MdTree, options: ParseOptio
         }
     });
     if (options.listItems !== false) {
-        splitListItems(root);
+        splitBody(root);
     }
     if (previous) {
         adoptIds(root, previous.root);
@@ -210,38 +218,101 @@ function extractPositions(tree: MdTree, lines: string[]): void {
 }
 
 /** Moves the list items of each heading's body into list nodes, recursively. */
-function splitListItems(heading: MdNode): void {
+const TABLE_RE = /^\s*\|/;
+const QUOTE_RE = /^\s*>/;
+const RULE_RE = /^(?:-{3,}|\*{3,}|_{3,})\s*$/;
+const EMBED_LINE_RE = /^\s*(?:!\[\[[^\]]+\]\]|!\[[^\]]*\]\([^)]+\))\s*$/;
+
+/** Unindented text that can start a paragraph: not a table, quote, rule, comment, embed, fence or list item. */
+function isParagraphStart(line: string): boolean {
+    return (
+        line.trim() !== '' &&
+        !/^\s/.test(line) &&
+        !TABLE_RE.test(line) &&
+        !QUOTE_RE.test(line) &&
+        !RULE_RE.test(line) &&
+        !line.startsWith('%%') &&
+        !line.startsWith('<') &&
+        !EMBED_LINE_RE.test(line) &&
+        !FENCE_RE.test(line) &&
+        !LIST_ITEM_RE.test(line)
+    );
+}
+
+/** Turns the list items and paragraphs in a heading's body into child nodes; recurses into sub-headings. */
+function splitBody(heading: MdNode): void {
     const headingChildren = heading.children;
     const lead: string[] = [];
-    const items: MdNode[] = [];
-    // stack of [indent width, item]
+    const blocks: MdNode[] = [];
+    // Open list items by indent width; empty when no list is running.
     const stack: Array<{ width: number; node: MdNode }> = [];
+    // Where the top-level items of the running list go: a paragraph's children or the heading's.
+    let listParent: MdNode[] = blocks;
+    // The last paragraph, while a list that follows it would still be its list.
+    let lastParagraph: MdNode | null = null;
+    let owner: string[] = lead;
     let inFence = false;
+    // The heading line counts as a block boundary, so a paragraph can start right under it.
+    let afterBlank = true;
 
     for (const line of heading.body) {
-        if (FENCE_RE.test(line)) {
-            inFence = !inFence;
+        const fence = FENCE_RE.test(line);
+        // Unindented text after a blank line ends a running list, as in Markdown; a list after it is a new list.
+        if (!inFence && afterBlank && line.trim() !== '' && !/^\s/.test(line) && !LIST_ITEM_RE.test(line)) {
+            stack.length = 0;
+            listParent = blocks;
         }
-        const match = inFence ? null : line.match(LIST_ITEM_RE);
-        if (!match) {
-            (stack.length > 0 ? stack[stack.length - 1].node.body : lead).push(line);
+        if (inFence || fence) {
+            owner.push(line);
+            inFence = fence ? !inFence : inFence;
+            afterBlank = false;
+            lastParagraph = null;
             continue;
         }
-        const [, indent, marker, title] = match;
-        const width = indent.length;
-        const node: MdNode = { id: nextId(), title, kind: 'list', marker, indent, body: [], children: [] };
-        while (stack.length > 0 && stack[stack.length - 1].width >= width) {
-            stack.pop();
+        if (line.trim() === '') {
+            owner.push(line);
+            afterBlank = true;
+            continue;
         }
-        (stack.length > 0 ? stack[stack.length - 1].node.children : items).push(node);
-        stack.push({ width, node });
+        const item = line.match(LIST_ITEM_RE);
+        if (item) {
+            const [, indent, marker, title] = item;
+            const width = indent.length;
+            const node: MdNode = { id: nextId(), title, kind: 'list', marker, indent, body: [], children: [] };
+            while (stack.length > 0 && stack[stack.length - 1].width >= width) {
+                stack.pop();
+            }
+            if (stack.length === 0 && lastParagraph) {
+                listParent = lastParagraph.children;
+                lastParagraph = null;
+            }
+            (stack.length > 0 ? stack[stack.length - 1].node.children : listParent).push(node);
+            stack.push({ width, node });
+            owner = node.body;
+            afterBlank = false;
+            continue;
+        }
+        if (afterBlank && isParagraphStart(line)) {
+            const node: MdNode = { id: nextId(), title: line, kind: 'paragraph', body: [], children: [] };
+            blocks.push(node);
+            lastParagraph = node;
+            owner = node.body;
+            afterBlank = false;
+            continue;
+        }
+        // Continuation lines, indented lines, tables, quotes, embeds: body of the node before them.
+        if (afterBlank) {
+            lastParagraph = null;
+        }
+        owner.push(line);
+        afterBlank = false;
     }
 
-    if (items.length > 0) {
+    if (blocks.length > 0) {
         heading.body = lead;
-        heading.children = [...items, ...headingChildren];
+        heading.children = [...blocks, ...headingChildren];
     }
-    headingChildren.forEach(splitListItems);
+    headingChildren.forEach(splitBody);
 }
 
 function adoptIds(node: MdNode, previous: MdNode): void {
@@ -282,6 +353,8 @@ function writeLines(tree: MdTree): { lines: string[]; lineOf: Map<string, number
         for (const child of parent.children) {
             if (child.kind === 'list') {
                 emitItem(child, indent);
+            } else if (child.kind === 'paragraph') {
+                emitParagraph(child, indent);
             } else {
                 emitHeading(child, level, gapFor(parent, child, !seenHeading));
                 seenHeading = true;
@@ -296,6 +369,19 @@ function writeLines(tree: MdTree): { lines: string[]; lineOf: Map<string, number
         out.push(node.title === '' ? '#'.repeat(level) : `${'#'.repeat(level)} ${node.title}`);
         out.push(...node.body);
         emitChildren(node, level + 1, '');
+    };
+    const emitParagraph = (node: MdNode, indent: string) => {
+        // A paragraph at the top of a body needs a blank line before it unless it opens a heading's
+        // body; a moved paragraph would otherwise run into the text before it. Under a list item it
+        // is indented to the item's content, where Markdown keeps it inside the item.
+        const previous = out[out.length - 1];
+        if (indent === '' && previous !== undefined && previous.trim() !== '' && !HEADING_RE.test(previous)) {
+            out.push('');
+        }
+        lineOf.set(node.id, out.length);
+        out.push(`${indent}${node.title.trimStart()}`);
+        out.push(...node.body);
+        emitChildren(node, 0, '');
     };
     const emitItem = (node: MdNode, parentIndent: string) => {
         const marker = node.marker ?? '-';
@@ -339,14 +425,28 @@ export function toPlain(node: MdNode): PlainNode {
     const media = mediaLinks(node.body);
     const firstLine = node.body.find(line => line.trim() !== '' && mediaLinks([line]).length === 0)?.trim();
     const preview = firstLine && firstLine.length > PREVIEW_MAX ? `${firstLine.slice(0, PREVIEW_MAX - 1).trimEnd()}…` : firstLine;
+    const paragraph = node.kind === 'paragraph';
     return {
         id: node.id,
         title: node.title,
         kind: node.kind,
-        preview,
+        preview: paragraph ? undefined : preview,
         media: media.length > 0 ? media : undefined,
+        text: paragraph ? paragraphText(node) : undefined,
         children: node.children.map(toPlain),
     };
+}
+
+/** The paragraph's own lines: its title and the lines that continue it, up to the first blank line or other block. */
+function paragraphText(node: MdNode): string {
+    const lines = [node.title];
+    for (const line of node.body) {
+        if (line.trim() === '' || TABLE_RE.test(line) || FENCE_RE.test(line) || EMBED_LINE_RE.test(line)) {
+            break;
+        }
+        lines.push(line);
+    }
+    return lines.map(line => line.trim()).join('\n');
 }
 
 /** Link targets of the image and video embeds in the lines, in order. */
@@ -381,7 +481,10 @@ export function reconcile(tree: MdTree, editorRoot: PlainNode, positionsById?: R
 
     const rebuild = (plain: PlainNode, parent: MdNode | undefined, previousSibling: MdNode | undefined): MdNode => {
         const existing = known.get(plain.id);
-        const kind: NodeKind = parent?.kind === 'list' ? 'list' : existing?.kind ?? plain.kind ?? 'heading';
+        // A paragraph stays a paragraph wherever it goes, so its text never gains a list marker; anything
+        // else under an item or a paragraph is written as a list item.
+        const kind: NodeKind =
+            existing?.kind === 'paragraph' ? 'paragraph' : parent?.kind === 'list' || parent?.kind === 'paragraph' ? 'list' : existing?.kind ?? plain.kind ?? 'heading';
         const node: MdNode = {
             id: plain.id,
             title: plain.title,
@@ -400,7 +503,7 @@ export function reconcile(tree: MdTree, editorRoot: PlainNode, positionsById?: R
             return built;
         });
         if (kind === 'heading') {
-            node.children = [...node.children.filter(c => c.kind === 'list'), ...node.children.filter(c => c.kind === 'heading')];
+            node.children = attachListsToParagraphs([...node.children.filter(c => c.kind !== 'heading'), ...node.children.filter(c => c.kind === 'heading')]);
         }
         return node;
     };
@@ -412,6 +515,25 @@ export function reconcile(tree: MdTree, editorRoot: PlainNode, positionsById?: R
         : { ...tree.root, children: rebuilt.children };
     const positions = positionsById ? positionsToPaths(editorRoot, positionsById) : tree.positions;
     return { ...tree, root, positions };
+}
+
+/**
+ * A list item written right after a paragraph is read back as that paragraph's
+ * child, so the tree takes that shape now: items that follow a paragraph among
+ * a heading's children move under it.
+ */
+function attachListsToParagraphs(children: MdNode[]): MdNode[] {
+    const result: MdNode[] = [];
+    let paragraph: MdNode | null = null;
+    for (const child of children) {
+        if (child.kind === 'list' && paragraph) {
+            paragraph.children = [...paragraph.children, child];
+            continue;
+        }
+        paragraph = child.kind === 'paragraph' ? child : null;
+        result.push(child);
+    }
+    return result;
 }
 
 /** Title path of every node under the editor root, by id ("A/B" for B under A). */
