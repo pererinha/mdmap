@@ -2,7 +2,9 @@
  * React Flow editor for one tree. The tree is the state; node positions are
  * derived from it on every change. A node the user dragged keeps its offset
  * from its parent, and its subtree moves with it. The organizer buttons glide
- * every node to the new layout and the viewport to its bounds. Keys:
+ * every node to the new layout and the viewport to its bounds. On a trackpad,
+ * two-finger scrolling moves the map as far as the fingers move, like a web
+ * page, and pinching zooms. Keys:
  * double-click edits, Tab adds a child, Enter adds a sibling, Delete removes,
  * Alt+Up/Down reorders, drag onto a node reparents, Cmd+Z / Cmd+Shift+Z
  * undo and redo.
@@ -461,6 +463,8 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 onNodeDragStart={onNodeDragStart}
                 onNodeDragStop={onNodeDragStop}
                 nodeDragThreshold={4}
+                panOnScroll
+                panOnScrollSpeed={1}
                 deleteKeyCode={null}
                 selectionKeyCode={null}
                 multiSelectionKeyCode={null}
