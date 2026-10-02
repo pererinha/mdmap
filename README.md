@@ -36,6 +36,13 @@ are the nodes, and every change in the map is written back to the Markdown.
   the map to that node's line and highlights it; the map keeps the keyboard.
   In reading mode the line comes to the top. The gear in the map's header
   turns this on and off.
+- **Show the heading in the map.** Putting the cursor on a heading in the
+  note, with a click or the arrow keys, selects its node in the map and
+  glides it to the middle, zoomed in enough to read. The keyboard stays in
+  the note.
+- **Copy a node as Markdown.** Hovering a node (or selecting it) shows a copy
+  icon on its corner; clicking it puts the node and everything under it on
+  the clipboard, as written in the note. List items start at the margin.
 - **Mermaid export.** A command copies the note as a Mermaid `mindmap` block.
 - **Undo and redo** inside the map.
 
@@ -57,6 +64,7 @@ are the nodes, and every change in the map is written back to the Markdown.
 | Reorder among siblings | Alt+Up / Alt+Down |
 | Move to another parent | Drag the node onto the new parent |
 | Keep a free position | Drag the node to empty canvas; its children move with it |
+| Copy a node and its subtree as Markdown | Hover the node and click the copy icon on its corner |
 | Undo / redo | Cmd+Z / Cmd+Shift+Z (Ctrl on Windows and Linux) |
 | Move around the map | Two-finger scroll on a trackpad (or the mouse wheel), or drag empty canvas |
 | Zoom | Pinch on a trackpad, or Cmd+scroll (Ctrl on Windows and Linux) |

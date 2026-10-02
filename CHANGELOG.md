@@ -29,6 +29,10 @@ First release.
   far as needed to show the whole map.
 - Clicking a node scrolls the note to its line and highlights it; a toggle in
   the gear menu of the map's header turns this off.
+- Putting the cursor on a heading in the note selects and centers its node in
+  the map.
 - Trackpad navigation: two-finger scrolling moves the map like a web page;
   pinching zooms.
+- A copy icon on each node puts the node and everything under it on the
+  clipboard as Markdown.
 - Command *Copy current note as Mermaid mindmap*.
