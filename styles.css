@@ -1,0 +1,85 @@
+.mdmap-content {
+    padding: 0;
+    overflow: hidden;
+}
+.mdmap-host {
+    width: 100%;
+    height: 100%;
+}
+
+/* Map editor */
+.mdmap-root {
+    width: 100%;
+    height: 100%;
+    outline: none;
+    --mdmap-branch: var(--interactive-accent);
+}
+.mdmap-node {
+    padding: 6px 12px;
+    border: 2px solid var(--mdmap-branch);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--mdmap-branch) 18%, var(--background-primary));
+    color: var(--text-normal);
+    font-family: var(--font-interface);
+    font-size: 14px;
+    line-height: 22px;
+    white-space: nowrap;
+}
+.mdmap-root-node {
+    border-radius: 50%;
+    min-width: 84px;
+    min-height: 84px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    font-weight: 600;
+    background: var(--mdmap-branch);
+    color: var(--text-on-accent);
+}
+.mdmap-list-node {
+    border-width: 1px;
+    border-style: dashed;
+    font-size: 13px;
+}
+.mdmap-preview {
+    display: block;
+    font-size: 11px;
+    line-height: 14px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.mdmap-media {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+}
+.mdmap-thumb {
+    max-width: 160px;
+    max-height: 120px;
+    border-radius: 4px;
+    display: block;
+    cursor: pointer;
+}
+.mdmap-node.mdmap-selected {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--mdmap-branch) 45%, transparent);
+}
+.mdmap-handle {
+    opacity: 0;
+    pointer-events: none;
+}
+.mdmap-input {
+    font: inherit;
+    width: 100%;
+    min-width: 80px;
+    color: var(--text-normal);
+}
+.mdmap-panel {
+    display: flex;
+    gap: 4px;
+}
+.mdmap-organize {
+    font-size: 12px;
+    padding: 2px 8px;
+}
