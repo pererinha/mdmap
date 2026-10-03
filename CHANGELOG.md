@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Search: a field at the top-left of the map, also reached with Cmd/Ctrl+F
+  while the map has focus, highlights the nodes whose title or paragraph text
+  contains what you type and shows how many there are. Enter and Shift+Enter
+  select and center the next and previous match; Escape clears the search.
+  Cmd/Ctrl+F in the note still opens Obsidian's search.
 - Edges meet the root's ellipse. With a long title they met a point below it,
   because the root's box was a square while the ellipse is one line tall.
 - Node boxes fit their labels: each label is measured in the node's font.

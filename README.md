@@ -23,6 +23,8 @@ is no separate mind map file.
   node without overlaps.
 - **From the map to the note and back.** Click a node to highlight its line
   in the note; put the cursor on a heading in the note to select its node.
+- **Search.** Type in the field at the top of the map, or press Cmd+F, to
+  highlight the nodes that contain the text and jump from one to the next.
 - **Copy a branch as Markdown**, exactly as it is written in the note.
 - **Mermaid export.** Copy the whole note as a Mermaid `mindmap` block.
 - **Images and videos** embedded in the note are shown inside their node.
@@ -107,6 +109,7 @@ The plugin is not in the community directory yet. To install it manually:
 | Place a node anywhere | Drag the node to an empty part of the map; the nodes under it move with it |
 | Copy a node and the nodes under it as Markdown | Hover over the node and click the copy icon in its corner |
 | Undo / redo | Cmd+Z / Cmd+Shift+Z (Ctrl on Windows and Linux) |
+| Search the map | Cmd+F (Ctrl on Windows and Linux) or click the search field, type; Enter / Shift+Enter center the next / previous match, Escape clears |
 | Move around the map | Scroll with two fingers on a trackpad or with the mouse wheel, or drag an empty part of the map |
 | Zoom | Pinch on a trackpad, or Cmd+scroll (Ctrl on Windows and Linux) |
 
