@@ -18,7 +18,7 @@ async function selectedTitles(page) {
   // 1. rename
   const r1 = await clickNode(page, 'Introdução');
   await dblClick(page, r1);
-  await page.keyboard.down('Meta'); await page.keyboard.press('a'); await page.keyboard.up('Meta');
+  await page.keyboard.down('Meta'); await page.keyboard.press('a', { commands: ['SelectAll'] }); await page.keyboard.up('Meta'); // over CDP, macOS needs the editing command
   await typeText(page, 'Abertura');
   await page.keyboard.press('Enter');
   await report(ctx, 'steps-01-rename');

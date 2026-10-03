@@ -16,7 +16,7 @@ const CANAL_LISTS = '# Canal\n\n## Pesquisa\nnotas da pesquisa\n- Referências\n
 
   // 1. rename the item "Artigos" to "Papers"
   await dblClick(page, await clickNode(page, 'Artigos'));
-  await page.keyboard.down('Meta'); await page.keyboard.press('a'); await page.keyboard.up('Meta');
+  await page.keyboard.down('Meta'); await page.keyboard.press('a', { commands: ['SelectAll'] }); await page.keyboard.up('Meta'); // over CDP, macOS needs the editing command
   await page.keyboard.type('Papers', { delay: 20 });
   await page.keyboard.press('Enter');
   await report(ctx, 'lists-01-rename-item');
