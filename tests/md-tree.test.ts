@@ -299,6 +299,33 @@ describe('md-tree paragraphs', () => {
         expect(mapRoot(joined, 'f').children.map(c => c.title)).to.deep.equal(['Primeiro parágrafo.']);
         expect(mapRoot(parseMarkdown(out), 'f').children.map(c => c.title)).to.deep.equal(['Primeiro parágrafo.']);
     });
+
+    /** SERIES after the first paragraph block's text is edited in the map. */
+    function editFirstBlock(text: string): string {
+        const tree = parseMarkdown(SERIES);
+        const root = mapRoot(tree, 'f');
+        root.children[0].text = text;
+        root.children[0].title = text.split('\n')[0];
+        return serializeMarkdown(reconcile(tree, root));
+    }
+    const BLOCK = ['Primeiro parágrafo.', 'continua aqui.', 'Segundo parágrafo.', 'Terceiro depois da tabela.'];
+
+    it('an edited paragraph line is written in place, the table between the paragraphs stays', () => {
+        expect(editFirstBlock(BLOCK.join('\n').replace('continua aqui.', 'continua ali.'))).to.equal(SERIES.replace('continua aqui.', 'continua ali.'));
+        expect(editFirstBlock(BLOCK.join('\n').replace('Primeiro', 'Novo'))).to.equal(SERIES.replace('Primeiro parágrafo.', 'Novo parágrafo.'));
+    });
+
+    it('a line added to a paragraph goes right after the line before it', () => {
+        const withMiddle = [...BLOCK.slice(0, 3), 'linha nova.', BLOCK[3]].join('\n');
+        expect(editFirstBlock(withMiddle)).to.equal(SERIES.replace('Segundo parágrafo.\n', 'Segundo parágrafo.\nlinha nova.\n'));
+        expect(editFirstBlock([...BLOCK, 'no fim.'].join('\n'))).to.equal(SERIES.replace('Terceiro depois da tabela.\n', 'Terceiro depois da tabela.\nno fim.\n'));
+    });
+
+    it('a line removed from a paragraph leaves the other lines where they were', () => {
+        const out = editFirstBlock([BLOCK[0], BLOCK[2], BLOCK[3]].join('\n'));
+        expect(out).to.equal(SERIES.replace('continua aqui.\n', ''));
+        expect(mapRoot(parseMarkdown(out), 'f').children[0].text).to.equal([BLOCK[0], BLOCK[2], BLOCK[3]].join('\n'));
+    });
 });
 
 describe('md-tree list items', () => {

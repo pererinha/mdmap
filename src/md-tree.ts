@@ -94,7 +94,7 @@ export interface PlainNode {
     preview?: string;
     /** Embeds in the body, as written: the link target of ![[file]] or ![alt](url). */
     media?: string[];
-    /** Paragraphs: the paragraph's whole text, its lines joined with newlines, for display only. */
+    /** Paragraphs: the paragraph's whole text, its lines joined with newlines. Reconcile writes it back when it changes. */
     text?: string;
 }
 
@@ -537,26 +537,27 @@ export function toPlain(node: MdNode): PlainNode {
 }
 
 /**
- * The text of the paragraphs in the block: each paragraph's lines, up to a
- * blank line or another block. Tables, code and embeds between them are left out.
+ * Indexes in the body of the lines that are paragraph text: each paragraph's
+ * lines, up to a blank line or another block. Tables, code and embeds between
+ * them are left out.
  */
-function paragraphText(node: MdNode): string {
-    const lines = [node.title];
+function paragraphLineIndexes(node: MdNode): number[] {
+    const indexes: number[] = [];
     let inText = true;
     let inFence = false;
     let afterBlank = false;
-    for (const line of node.body) {
+    node.body.forEach((line, index) => {
         const fence = FENCE_RE.test(line);
         if (inFence || fence) {
             inFence = fence ? !inFence : inFence;
             inText = false;
             afterBlank = false;
-            continue;
+            return;
         }
         if (line.trim() === '') {
             inText = false;
             afterBlank = true;
-            continue;
+            return;
         }
         if (afterBlank && isParagraphStart(line)) {
             inText = true;
@@ -565,10 +566,88 @@ function paragraphText(node: MdNode): string {
         }
         afterBlank = false;
         if (inText) {
-            lines.push(line);
+            indexes.push(index);
+        }
+    });
+    return indexes;
+}
+
+/** The text of the paragraphs in the block: the title and the paragraph lines of the body, trimmed. */
+function paragraphText(node: MdNode): string {
+    return [node.title, ...paragraphLineIndexes(node).map(index => node.body[index])].map(line => line.trim()).join('\n');
+}
+
+/** Index pairs of the lines `a` and `b` share, in order: their longest common subsequence. */
+function commonLines(a: string[], b: string[]): Array<[number, number]> {
+    const lengths = Array.from({ length: a.length + 1 }, () => new Array<number>(b.length + 1).fill(0));
+    for (let i = a.length - 1; i >= 0; i--) {
+        for (let j = b.length - 1; j >= 0; j--) {
+            lengths[i][j] = a[i] === b[j] ? lengths[i + 1][j + 1] + 1 : Math.max(lengths[i + 1][j], lengths[i][j + 1]);
         }
     }
-    return lines.map(line => line.trim()).join('\n');
+    const pairs: Array<[number, number]> = [];
+    let i = 0;
+    let j = 0;
+    while (i < a.length && j < b.length) {
+        if (a[i] === b[j]) {
+            pairs.push([i, j]);
+            i++;
+            j++;
+        } else if (lengths[i + 1][j] >= lengths[i][j + 1]) {
+            i++;
+        } else {
+            j++;
+        }
+    }
+    return pairs;
+}
+
+/**
+ * Title and body of a paragraph block whose text is now `text`. The first line
+ * is the title. The other lines are matched against the paragraph lines of the
+ * body: a line still there stays as written, a changed line replaces the old
+ * one, a new line goes right after the line before it, and a line no longer in
+ * the text is removed. The rest of the body (tables, code, embeds) stays.
+ */
+function withParagraphText(node: MdNode, text: string): { title: string; body: string[] } {
+    const [first, ...lines] = text.split('\n');
+    const indexes = paragraphLineIndexes(node);
+    const old = indexes.map(index => node.body[index].trim());
+    const replaced = new Map<number, string>();
+    const removed = new Set<number>();
+    const insertBefore = new Map<number, string[]>();
+    let o = 0;
+    let n = 0;
+    let lastOld = -1;
+    for (const [po, pn] of [...commonLines(old, lines), [old.length, lines.length] as [number, number]]) {
+        // Between two shared lines: old lines pair with new ones as edits, then the surplus is removed or inserted.
+        for (; o < po && n < pn; o++, n++) {
+            replaced.set(indexes[o], lines[n]);
+            lastOld = indexes[o];
+        }
+        for (; o < po; o++) {
+            removed.add(indexes[o]);
+            lastOld = indexes[o];
+        }
+        if (n < pn) {
+            insertBefore.set(lastOld + 1, [...(insertBefore.get(lastOld + 1) ?? []), ...lines.slice(n, pn)]);
+            n = pn;
+        }
+        if (po < old.length) {
+            lastOld = indexes[po];
+            o++;
+            n++;
+        }
+    }
+    const body: string[] = [];
+    node.body.forEach((line, index) => {
+        body.push(...(insertBefore.get(index) ?? []));
+        if (!removed.has(index)) {
+            body.push(replaced.get(index) ?? line);
+        }
+    });
+    body.push(...(insertBefore.get(node.body.length) ?? []));
+    return { title: node.title.trim() === first.trim() ? node.title : first, body };
 }
 
 /** Link targets of the image and video embeds in the lines, in order. */
@@ -607,15 +686,17 @@ export function reconcile(tree: MdTree, editorRoot: PlainNode, positionsById?: R
         // else under an item or a paragraph is written as a list item.
         const kind: NodeKind =
             existing?.kind === 'paragraph' ? 'paragraph' : parent?.kind === 'list' || parent?.kind === 'paragraph' ? 'list' : existing?.kind ?? plain.kind ?? 'heading';
+        // A paragraph edited in the map brings its whole text; its lines go back into the title and the body.
+        const edited = existing?.kind === 'paragraph' && plain.text !== undefined && plain.text !== paragraphText(existing) ? withParagraphText(existing, plain.text) : undefined;
         const node: MdNode = {
             id: plain.id,
-            title: plain.title,
+            title: edited?.title ?? plain.title,
             kind,
             marker: kind === 'list' ? existing?.marker ?? previousSibling?.marker ?? parent?.marker ?? '-' : undefined,
             indent: kind === 'list' && existing?.kind === 'list' ? existing.indent : undefined,
             gapBefore: existing?.gapBefore,
             gapFirstChild: existing?.gapFirstChild,
-            body: existing ? existing.body : [],
+            body: edited?.body ?? (existing ? existing.body : []),
             children: [],
         };
         let previous: MdNode | undefined;
