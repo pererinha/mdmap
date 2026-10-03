@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0
 
 - Editing happens in the node itself: a double-click puts the caret where you
   clicked, in the same text and box, instead of opening a text field. The box
