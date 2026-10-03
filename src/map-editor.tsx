@@ -519,6 +519,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 edgesFocusable={false}
                 minZoom={MIN_ZOOM}
                 maxZoom={2}
+                proOptions={{ hideAttribution: true }}
             >
                 <Background />
                 <Panel position="top-right" className="mdmap-panel">
