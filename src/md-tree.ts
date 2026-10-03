@@ -94,8 +94,10 @@ export interface PlainNode {
     preview?: string;
     /** Embeds in the body, as written: the link target of ![[file]] or ![alt](url). */
     media?: string[];
-    /** Paragraphs: the paragraph's whole text, its lines joined with newlines. Reconcile writes it back when it changes. */
+    /** Paragraphs: the paragraph's whole text, its lines joined with newlines, for display only. */
     text?: string;
+    /** Paragraphs: the text and embed lines as the note has them, joined with newlines. The map edits this; reconcile writes it back when it changes. */
+    source?: string;
     /** Display only: the node is being edited, so the layout sizes it for its whole title or text. */
     editing?: boolean;
 }
@@ -534,16 +536,17 @@ export function toPlain(node: MdNode): PlainNode {
         preview: paragraph ? undefined : preview,
         media: media.length > 0 ? media : undefined,
         text: paragraph ? paragraphText(node) : undefined,
+        source: paragraph ? paragraphSource(node) : undefined,
         children: node.children.map(toPlain),
     };
 }
 
 /**
  * Indexes in the body of the lines that are paragraph text: each paragraph's
- * lines, up to a blank line or another block. Tables, code and embeds between
- * them are left out.
+ * lines, up to a blank line or another block. Tables and code between them are
+ * left out, and so are embed lines unless `withEmbeds`.
  */
-function paragraphLineIndexes(node: MdNode): number[] {
+function paragraphLineIndexes(node: MdNode, withEmbeds = false): number[] {
     const indexes: number[] = [];
     let inText = true;
     let inFence = false;
@@ -565,6 +568,9 @@ function paragraphLineIndexes(node: MdNode): number[] {
             inText = true;
         } else if (TABLE_RE.test(line) || EMBED_LINE_RE.test(line)) {
             inText = false;
+            if (withEmbeds && EMBED_LINE_RE.test(line)) {
+                indexes.push(index);
+            }
         }
         afterBlank = false;
         if (inText) {
@@ -577,6 +583,11 @@ function paragraphLineIndexes(node: MdNode): number[] {
 /** The text of the paragraphs in the block: the title and the paragraph lines of the body, trimmed. */
 function paragraphText(node: MdNode): string {
     return [node.title, ...paragraphLineIndexes(node).map(index => node.body[index])].map(line => line.trim()).join('\n');
+}
+
+/** What the map edits for a paragraph block: its text with its embed lines where the note has them, trimmed. */
+function paragraphSource(node: MdNode): string {
+    return [node.title, ...paragraphLineIndexes(node, true).map(index => node.body[index])].map(line => line.trim()).join('\n');
 }
 
 /** Index pairs of the lines `a` and `b` share, in order: their longest common subsequence. */
@@ -605,15 +616,16 @@ function commonLines(a: string[], b: string[]): Array<[number, number]> {
 }
 
 /**
- * Title and body of a paragraph block whose text is now `text`. The first line
- * is the title. The other lines are matched against the paragraph lines of the
- * body: a line still there stays as written, a changed line replaces the old
- * one, a new line goes right after the line before it, and a line no longer in
- * the text is removed. The rest of the body (tables, code, embeds) stays.
+ * Title and body of a paragraph block whose source is now `text`. The first
+ * line is the title. The other lines are matched against the paragraph and
+ * embed lines of the body: a line still there stays as written, a changed line
+ * replaces the old one, a new line goes right after the line before it, and a
+ * line no longer in the text is removed. The rest of the body (tables, code)
+ * stays.
  */
 function withParagraphText(node: MdNode, text: string): { title: string; body: string[] } {
     const [first, ...lines] = text.split('\n');
-    const indexes = paragraphLineIndexes(node);
+    const indexes = paragraphLineIndexes(node, true);
     const old = indexes.map(index => node.body[index].trim());
     const replaced = new Map<number, string>();
     const removed = new Set<number>();
@@ -688,8 +700,8 @@ export function reconcile(tree: MdTree, editorRoot: PlainNode, positionsById?: R
         // else under an item or a paragraph is written as a list item.
         const kind: NodeKind =
             existing?.kind === 'paragraph' ? 'paragraph' : parent?.kind === 'list' || parent?.kind === 'paragraph' ? 'list' : existing?.kind ?? plain.kind ?? 'heading';
-        // A paragraph edited in the map brings its whole text; its lines go back into the title and the body.
-        const edited = existing?.kind === 'paragraph' && plain.text !== undefined && plain.text !== paragraphText(existing) ? withParagraphText(existing, plain.text) : undefined;
+        // A paragraph edited in the map brings its whole source; its lines go back into the title and the body.
+        const edited = existing?.kind === 'paragraph' && plain.source !== undefined && plain.source !== paragraphSource(existing) ? withParagraphText(existing, plain.source) : undefined;
         const node: MdNode = {
             id: plain.id,
             title: edited?.title ?? plain.title,

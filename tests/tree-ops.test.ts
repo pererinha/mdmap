@@ -31,4 +31,10 @@ describe('tree-ops', () => {
         expect(findNode(edited, 'c')!.editing).to.equal(undefined);
         expect(findNode(TREE, 'b')!.title).to.equal('Stops');
     });
+
+    it('setText keeps a paragraph\'s thumbnails in step with the embed lines being typed', () => {
+        const typed = setText(TREE, 'b', 'Stops\n![[map.png]]\nLisbon');
+        expect(findNode(typed, 'b')).to.deep.include({ source: 'Stops\n![[map.png]]\nLisbon', media: ['map.png'] });
+        expect(findNode(setText(TREE, 'b', 'Stops'), 'b')!.media).to.equal(undefined);
+    });
 });

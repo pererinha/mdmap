@@ -300,11 +300,11 @@ describe('md-tree paragraphs', () => {
         expect(mapRoot(parseMarkdown(out), 'f').children.map(c => c.title)).to.deep.equal(['Primeiro parágrafo.']);
     });
 
-    /** SERIES after the first paragraph block's text is edited in the map. */
-    function editFirstBlock(text: string): string {
-        const tree = parseMarkdown(SERIES);
+    /** `note` after its first paragraph block's source is edited in the map. */
+    function editFirstBlock(text: string, note = SERIES): string {
+        const tree = parseMarkdown(note);
         const root = mapRoot(tree, 'f');
-        root.children[0].text = text;
+        root.children[0].source = text;
         root.children[0].title = text.split('\n')[0];
         return serializeMarkdown(reconcile(tree, root));
     }
@@ -325,6 +325,22 @@ describe('md-tree paragraphs', () => {
         const out = editFirstBlock([BLOCK[0], BLOCK[2], BLOCK[3]].join('\n'));
         expect(out).to.equal(SERIES.replace('continua aqui.\n', ''));
         expect(mapRoot(parseMarkdown(out), 'f').children[0].text).to.equal([BLOCK[0], BLOCK[2], BLOCK[3]].join('\n'));
+    });
+
+    const SHOT = ['# Notas', '', 'mdmap turns a note into a map.', '![[shot.png]]', '', 'Second paragraph.', ''].join('\n');
+
+    it("a paragraph's source has its embed lines where the note has them; its text and preview do not", () => {
+        const block = mapRoot(parseMarkdown(SHOT), 'f').children[0];
+        expect(block.text).to.equal('mdmap turns a note into a map.\nSecond paragraph.');
+        expect(block.source).to.equal('mdmap turns a note into a map.\n![[shot.png]]\nSecond paragraph.');
+        expect(block.media).to.deep.equal(['shot.png']);
+    });
+
+    it('editing a paragraph keeps its embed, and removing the embed line removes the image from the note', () => {
+        expect(editFirstBlock('mdmap turns a note into a mind map.\n![[shot.png]]\nSecond paragraph.', SHOT)).to.equal(SHOT.replace('into a map.', 'into a mind map.'));
+        const out = editFirstBlock('mdmap turns a note into a map.\nSecond paragraph.', SHOT);
+        expect(out).to.equal(SHOT.replace('![[shot.png]]\n', ''));
+        expect(mapRoot(parseMarkdown(out), 'f').children[0].media).to.equal(undefined);
     });
 });
 

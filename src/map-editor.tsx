@@ -117,7 +117,8 @@ function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
         if (!data.editing || !el) {
             return;
         }
-        original.current = data.text ?? data.title;
+        // A paragraph is edited as Markdown: its embed lines show as written, the thumbnails stay under the text.
+        original.current = data.source ?? data.text ?? data.title;
         finished.current = false;
         el.textContent = original.current;
         el.focus();
@@ -182,37 +183,33 @@ function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
                     }}
                     onBlur={e => finish(e.currentTarget, true)}
                 />
+            ) : paragraph ? (
+                <span key="label" className="mdmap-text" style={{ WebkitLineClamp: data.textLines }}>
+                    {data.text}
+                </span>
             ) : (
-                <>
-                    {paragraph ? (
-                        <span key="label" className="mdmap-text" style={{ WebkitLineClamp: data.textLines }}>
-                            {data.text}
-                        </span>
-                    ) : (
-                        <span key="label" className="mdmap-title">{data.label}</span>
+                <span key="label" className="mdmap-title">{data.label}</span>
+            )}
+            {data.preview && data.depth > 0 && <span className="mdmap-preview">{data.preview}</span>}
+            {data.resolved.length > 0 && (
+                <span className="mdmap-media">
+                    {data.resolved.map(item =>
+                        item.kind === 'video' ? (
+                            <video key={item.link} className="mdmap-thumb" src={item.src} controls preload="metadata" />
+                        ) : (
+                            <img
+                                key={item.link}
+                                className="mdmap-thumb"
+                                src={item.src}
+                                alt={item.link}
+                                onClick={e => {
+                                    e.stopPropagation();
+                                    data.onOpenMedia?.(item.link);
+                                }}
+                            />
+                        ),
                     )}
-                    {data.preview && data.depth > 0 && <span className="mdmap-preview">{data.preview}</span>}
-                    {data.resolved.length > 0 && (
-                        <span className="mdmap-media">
-                            {data.resolved.map(item =>
-                                item.kind === 'video' ? (
-                                    <video key={item.link} className="mdmap-thumb" src={item.src} controls preload="metadata" />
-                                ) : (
-                                    <img
-                                        key={item.link}
-                                        className="mdmap-thumb"
-                                        src={item.src}
-                                        alt={item.link}
-                                        onClick={e => {
-                                            e.stopPropagation();
-                                            data.onOpenMedia?.(item.link);
-                                        }}
-                                    />
-                                ),
-                            )}
-                        </span>
-                    )}
-                </>
+                </span>
             )}
         </div>
         {data.onCopy && !data.editing && (
@@ -479,7 +476,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
             const node = findNode(rootRef.current, id);
             if (node) {
                 // A long title or paragraph shows whole while it is edited.
-                onEditInput(id, node.text ?? node.title);
+                onEditInput(id, node.source ?? node.text ?? node.title);
             }
             setEditingId(id);
         },

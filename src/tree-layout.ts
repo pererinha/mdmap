@@ -47,6 +47,8 @@ export interface MdNodeData extends Record<string, unknown> {
     label: string;
     /** Paragraphs: the whole text, shown as a block of at most `textLines` wrapped lines. */
     text?: string;
+    /** Paragraphs: the text with its embed lines as the note has them, which editing shows. */
+    source?: string;
     textLines?: number;
     depth: number;
     /** Which side of the root the node sits on; the root has no side. */
@@ -82,9 +84,9 @@ const FAN_SLOPE = 0.25;
 /** Vertical gap between two stacked subtrees. */
 export const GAP_Y = 16;
 
-/** Paragraph text and the number of lines its block shows. */
-function textData(node: PlainNode): Pick<MdNodeData, 'text' | 'textLines'> {
-    return node.text === undefined ? {} : { text: node.text, textLines: paragraphLines(node.text) };
+/** Paragraph text, its source and the number of lines its block shows. */
+function textData(node: PlainNode): Pick<MdNodeData, 'text' | 'source' | 'textLines'> {
+    return node.text === undefined ? {} : { text: node.text, source: node.source, textLines: paragraphLines(node.text) };
 }
 
 export function shortLabel(title: string): string {

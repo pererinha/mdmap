@@ -2,13 +2,16 @@
 // colours and only a caret appears, where the double-click landed. Typing grows the box and moves its neighbours
 // without writing the note; Enter writes it, Escape puts everything back. A long title shows whole while it is
 // edited, a paragraph block is edited whole (Shift+Enter adds a line) and the table between its paragraphs stays,
-// and a node added with Tab starts with its text selected.
+// a node added with Tab starts with its text selected, and a paragraph with an image shows its embed line as Markdown
+// while edited, with the image still under the text.
 const { connect, sleep, reloadPlugin, openEditor, clickNode, dblClick, md, shot } = require('./lib');
 
 const FILE = 'Editing-e2e.md';
+const IMAGE = 'Editing-e2e.png';
 const LONG = 'A heading whose title is longer than forty characters';
 const NOTE = ['# Editing', '', '## Comments', '', '- Ask about the comment box', '', `## ${LONG}`, '', '## Story', '',
-  'First line of the paragraph,', 'second line of the paragraph.', '', '|a|b|', '|---|---|', '', 'Third line after the table.', ''].join('\n');
+  'First line of the paragraph,', 'second line of the paragraph.', '', '|a|b|', '|---|---|', '', 'Third line after the table.', '',
+  '## Picture', '', 'A paragraph with a picture.', `![[${IMAGE}]]`, ''].join('\n');
 const MAC = process.platform === 'darwin';
 
 async function chord(page, modifiers, key) {
@@ -76,10 +79,17 @@ async function box(page, text) {
 (async () => {
   const ctx = await connect();
   const { page } = ctx;
-  await page.evaluate(async ({ file, content }) => {
+  await page.evaluate(async ({ file, content, image }) => {
+    if (!app.vault.getAbstractFileByPath(image)) {
+      const canvas = Object.assign(document.createElement('canvas'), { width: 160, height: 90 });
+      const g = canvas.getContext('2d');
+      g.fillStyle = '#3b82f6'; g.fillRect(0, 0, 160, 90); g.fillStyle = '#f59e0b'; g.fillRect(20, 20, 60, 50);
+      const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+      await app.vault.createBinary(image, await blob.arrayBuffer());
+    }
     const existing = app.vault.getAbstractFileByPath(file);
     if (existing) await app.vault.modify(existing, content); else await app.vault.create(file, content);
-  }, { file: FILE, content: NOTE });
+  }, { file: FILE, content: NOTE, image: IMAGE });
   await reloadPlugin(page);
   await openEditor(page, FILE);
   ctx.drain();
@@ -158,9 +168,44 @@ async function box(page, text) {
   await sleep(800);
   console.log('new child written:', (await md(page, FILE)).includes('Child'), '| writes:', ctx.drain().filter(l => l.includes('wrote')).length);
 
-  await page.evaluate(async file => {
+  // 8. a paragraph with an image: the embed line shows as Markdown while edited, and the image stays under the text
+  const picture = async () => page.evaluate(() => {
+    const node = (document.querySelector('.mdmap-editable') ?? Array.from(document.querySelectorAll('.mdmap-text')).find(s => s.textContent.startsWith('A paragraph with'))).closest('.mdmap-node');
+    const img = node.querySelector('img.mdmap-thumb');
+    const text = node.querySelector('.mdmap-editable, .mdmap-text');
+    return { image: !!img && img.complete && img.naturalWidth > 0, below: !!img && img.getBoundingClientRect().top >= text.getBoundingClientRect().bottom - 1, text: text.textContent };
+  });
+  const shown = await picture();
+  await dblClick(page, await charPoint(page, 'A paragraph with a picture.', 2));
+  const editingPicture = await picture();
+  console.log('picture while edited:', JSON.stringify({ shown, editingPicture }), '| embed line as Markdown, image still under the text:',
+    shown.image && shown.text === 'A paragraph with a picture.' && editingPicture.image && editingPicture.below && editingPicture.text === `A paragraph with a picture.\n![[${IMAGE}]]`);
+  console.log(await shot(page, 'editing-04-picture'));
+  await caretAtEndOfLine(page, 0);
+  await page.keyboard.type(' Nice.', { delay: 10 });
+  await page.keyboard.press('Enter');
+  await sleep(800);
+  note = await md(page, FILE);
+  console.log('picture paragraph written, embed kept:', note.includes(`A paragraph with a picture. Nice.\n![[${IMAGE}]]\n`));
+  // deleting the embed line hides the image at once; Escape brings both back
+  await dblClick(page, await charPoint(page, 'A paragraph with a picture. Nice.', 2));
+  await page.evaluate(() => {
+    const el = document.querySelector('.mdmap-editable');
+    const text = el.firstChild;
+    getSelection().setBaseAndExtent(text, text.textContent.indexOf('\n'), text, text.textContent.length);
+  });
+  await page.keyboard.press('Backspace');
+  await sleep(300);
+  const deleted = await picture();
+  await page.keyboard.press('Escape');
+  await sleep(500);
+  const restored = await picture();
+  console.log('embed line deleted while editing: image gone; Escape: image and note back:', !deleted.image && restored.image && (await md(page, FILE)) === note);
+
+  await page.evaluate(async (file, image) => {
     app.workspace.getLeavesOfType('mdmap').filter(l => l.view.getState().file === file).forEach(l => l.detach());
     await app.vault.delete(app.vault.getAbstractFileByPath(file));
-  }, FILE);
+    await app.vault.delete(app.vault.getAbstractFileByPath(image));
+  }, FILE, IMAGE);
   ctx.browser.disconnect();
 })().catch(e => { console.error('ERR', e); process.exit(1); });

@@ -3,7 +3,7 @@
  * leaves the input untouched, so the view can keep snapshots for undo/redo.
  */
 
-import { PlainNode, nextId } from './md-tree';
+import { PlainNode, mediaLinks, nextId } from './md-tree';
 
 export const NEW_NODE_TITLE = 'New node';
 
@@ -61,16 +61,22 @@ function mapTree(node: PlainNode, fn: (node: PlainNode) => PlainNode): PlainNode
 }
 
 /**
- * Sets the node's text: a paragraph takes it whole, with its first line as the
- * title; any other node takes it as its title. `editing` marks the node for the
- * layout while the user types.
+ * Sets the node's text: a paragraph takes it whole as its source and its text,
+ * with its first line as the title; any other node takes it as its title.
+ * `editing` marks the node for the layout while the user types.
  */
 export function setText(root: PlainNode, id: string, text: string, editing = false): PlainNode {
     return mapTree(root, node => {
         if (node.id !== id) {
             return node;
         }
-        const edited = node.text === undefined ? { ...node, title: text } : { ...node, title: text.split('\n')[0], text };
+        if (node.text === undefined) {
+            return editing ? { ...node, title: text, editing } : { ...node, title: text };
+        }
+        // The thumbnails follow the embed lines being typed.
+        const [title, ...lines] = text.split('\n');
+        const media = mediaLinks(lines);
+        const edited = { ...node, title, text, source: text, media: media.length > 0 ? media : undefined };
         return editing ? { ...edited, editing } : edited;
     });
 }
