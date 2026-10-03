@@ -1,4 +1,4 @@
-import { ItemView, MarkdownView, Menu, Notice, TFile, WorkspaceLeaf } from 'obsidian';
+import { ItemView, MarkdownView, Menu, Notice, Scope, TFile, WorkspaceLeaf } from 'obsidian';
 import { createRoot, Root } from 'react-dom/client';
 import { EditorSync, whenSized } from './editor-sync';
 import { PlainNode, XY } from './md-tree';
@@ -53,6 +53,12 @@ export default class EditorView extends ItemView {
         this.host = this.contentEl.createDiv({ cls: 'mdmap-host' });
         this.registerEvent(this.app.workspace.on('resize', () => this.editor?.fit()));
         this.addAction('settings', 'Mind map settings', evt => this.showSettings(evt));
+        // Cmd/Ctrl+F while the map has focus goes to its search field instead of Obsidian's file search.
+        this.scope = new Scope(this.app.scope);
+        this.scope.register(['Mod'], 'f', () => {
+            this.editor?.focusSearch();
+            return false;
+        });
     }
 
     /** The view's own settings, as a menu of toggles under the gear in the view header. */

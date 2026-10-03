@@ -7,7 +7,8 @@
  * page, and pinching zooms. Keys:
  * double-click edits, Tab adds a child, Enter adds a sibling, Delete removes,
  * Alt+Up/Down reorders, drag onto a node reparents, Cmd+Z / Cmd+Shift+Z
- * undo and redo.
+ * undo and redo. The search field at the top-left highlights the nodes that
+ * contain its text; Enter and Shift+Enter center the next and previous one.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -29,7 +30,7 @@ import type { Edge, Node, NodeProps, OnNodeDrag, OnSelectionChangeFunc, ReactFlo
 import { setIcon } from 'obsidian';
 import { PlainNode, XY } from './md-tree';
 import { Facing, Layout, MdNodeData, NODE_TYPE, layoutTree } from './tree-layout';
-import { addChild, addSiblingAfter, isDescendant, moveInto, moveSibling, remove, rename } from './tree-ops';
+import { addChild, addSiblingAfter, isDescendant, moveInto, moveSibling, remove, rename, searchNodes } from './tree-ops';
 
 export interface ResolvedMedia {
     src: string;
@@ -44,6 +45,8 @@ export interface MapEditorHandle {
     fit(): Promise<boolean>;
     /** Selects the node and glides the viewport to center it, zooming in to at least FOCUS_ZOOM. */
     focus(id: string): void;
+    /** Puts the keyboard in the search field and selects its text. */
+    focusSearch(): void;
     /** The React Flow instance, for scripts that drive the view. */
     instance: ReactFlowInstance<EditorNode>;
 }
@@ -65,6 +68,8 @@ interface MapEditorProps {
 
 interface EditorNodeData extends MdNodeData {
     editing: boolean;
+    /** The node contains the search text. */
+    matched?: boolean;
     resolved: Array<ResolvedMedia & { link: string }>;
     onOpenMedia?(link: string): void;
     onCopy?(id: string): void;
@@ -84,6 +89,7 @@ function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
         data.kind === 'list' ? 'mdmap-list-node' : '',
         data.kind === 'paragraph' ? 'mdmap-paragraph-node' : '',
         selected ? 'mdmap-selected' : '',
+        data.matched ? 'mdmap-match' : '',
     ].join(' ');
     const style = data.color ? ({ '--mdmap-branch': data.color } as CSSProperties) : undefined;
     // A source and a target handle on every side; each edge picks the pair that faces the other node.
@@ -200,6 +206,10 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [editingId, setEditingId] = useState<string | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const searchRef = useRef<HTMLInputElement>(null);
+    const [query, setQuery] = useState('');
+    /** Index in the matches of the node the search last centered, -1 before the first Enter. */
+    const [current, setCurrent] = useState(-1);
     /** Frame request of the running organizer animation, if any. */
     const animation = useRef<number | null>(null);
 
@@ -350,6 +360,10 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 const height = node.measured?.height ?? node.height ?? 0;
                 flow.setCenter(x + width / 2, y + height / 2, { zoom: Math.max(flow.getZoom(), FOCUS_ZOOM), duration: ORGANIZE_MS });
             },
+            focusSearch() {
+                searchRef.current?.focus();
+                searchRef.current?.select();
+            },
             instance: flow,
         };
         onReady(handleRef.current);
@@ -490,9 +504,33 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
         [editingId, apply, restore, startEditing],
     );
 
+    // `nodes` changes every time the tree is rendered, so the matches follow edits.
+    const matches = useMemo(() => searchNodes(rootRef.current, query), [query, nodes]);
+    const matched = useMemo(() => new Set(matches), [matches]);
+    // An edit can leave fewer matches than the index; stepping then starts over.
+    const at = current < matches.length ? current : -1;
+
+    const onSearchKeyDown = useCallback(
+        (event: ReactKeyboardEvent<HTMLInputElement>) => {
+            // Keys typed in the field never reach the map's shortcuts.
+            event.stopPropagation();
+            if (event.key === 'Escape') {
+                setQuery('');
+                setCurrent(-1);
+                containerRef.current?.focus();
+            } else if (event.key === 'Enter' && matches.length > 0) {
+                event.preventDefault();
+                const next = event.shiftKey ? (at <= 0 ? matches.length - 1 : at - 1) : (at + 1) % matches.length;
+                setCurrent(next);
+                handleRef.current?.focus(matches[next]);
+            }
+        },
+        [matches, at],
+    );
+
     const displayNodes = useMemo<EditorNode[]>(
-        () => nodes.map(node => ({ ...node, data: { ...node.data, editing: node.id === editingId } })),
-        [nodes, editingId],
+        () => nodes.map(node => ({ ...node, data: { ...node.data, editing: node.id === editingId, matched: matched.has(node.id) } })),
+        [nodes, editingId, matched],
     );
 
     return (
@@ -522,6 +560,22 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 proOptions={{ hideAttribution: true }}
             >
                 <Background />
+                <Panel position="top-left" className="mdmap-panel mdmap-search">
+                    <input
+                        ref={searchRef}
+                        className="mdmap-search-input"
+                        type="text"
+                        placeholder="Search nodes"
+                        aria-label="Search nodes"
+                        value={query}
+                        onChange={event => {
+                            setQuery(event.target.value);
+                            setCurrent(-1);
+                        }}
+                        onKeyDown={onSearchKeyDown}
+                    />
+                    {query.trim() && <span className="mdmap-search-count">{`${at + 1}/${matches.length}`}</span>}
+                </Panel>
                 <Panel position="top-right" className="mdmap-panel">
                     {ORGANIZERS.map(item => (
                         <button

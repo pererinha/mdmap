@@ -38,6 +38,23 @@ export function isDescendant(root: PlainNode, ancestorId: string, id: string): b
     return !!ancestor && ancestor.id !== id && !!findNode(ancestor, id);
 }
 
+/** Ids of the nodes whose title or paragraph text contains `query`, ignoring case, in document order. */
+export function searchNodes(root: PlainNode, query: string): string[] {
+    const needle = query.trim().toLowerCase();
+    if (!needle) {
+        return [];
+    }
+    const ids: string[] = [];
+    const visit = (node: PlainNode) => {
+        if (node.title.toLowerCase().includes(needle) || node.text?.toLowerCase().includes(needle)) {
+            ids.push(node.id);
+        }
+        node.children.forEach(visit);
+    };
+    visit(root);
+    return ids;
+}
+
 function mapTree(node: PlainNode, fn: (node: PlainNode) => PlainNode): PlainNode {
     const mapped = fn(node);
     return { ...mapped, children: mapped.children.map(child => mapTree(child, fn)) };

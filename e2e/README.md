@@ -37,6 +37,7 @@ node e2e/trackpad.js   # two-finger scroll pans one to one, pinch zooms around t
 node e2e/paragraphs.js # paragraphs that follow one another as one text block, a list hanging from the paragraph before it, Tab and undo on it
 node e2e/copy.js       # the copy icon on a node puts its Markdown section on the clipboard (saved and restored)
 node e2e/focus.js      # the cursor on a heading in the note selects and centers its node; the keyboard stays in the note
+node e2e/search.js     # Cmd/Ctrl+F, highlighted matches, Enter / Shift+Enter center them, Escape; Cmd/Ctrl+F in the note is Obsidian's
 ```
 
 The scenarios create, rewrite and delete notes, so they stop unless the

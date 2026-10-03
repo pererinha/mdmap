@@ -139,3 +139,20 @@
     font-size: 12px;
     padding: 2px 8px;
 }
+/* Search field at the top-left of the map, followed by "current/matches". */
+.mdmap-search {
+    align-items: center;
+}
+.mdmap-search-input {
+    width: 180px;
+    font-size: 12px;
+}
+.mdmap-search-count {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+/* A node that contains the search text, ringed in the colour Obsidian highlights text with. */
+.mdmap-node.mdmap-match {
+    outline: 4px solid var(--text-highlight-bg);
+    outline-offset: 2px;
+}
