@@ -59,6 +59,8 @@ export type MdFlowNode = Node<MdNodeData, typeof NODE_TYPE>;
 
 const CHAR_WIDTH = 7.5;
 const PADDING_X = 24;
+/** Left and right border of a node box, 2 px each. */
+const BORDER_X = 4;
 const NODE_HEIGHT = 36;
 const PREVIEW_HEIGHT = 14;
 const PREVIEW_CHAR_WIDTH = 6.5;
@@ -96,6 +98,20 @@ export function paragraphLines(text: string): number {
     return Math.min(PARAGRAPH_MAX_LINES, lines);
 }
 
+let measureContext: CanvasRenderingContext2D | null | undefined;
+
+/** Width of a label in the node font, measured on a canvas; CHAR_WIDTH per character where there is no DOM, as in the unit tests. */
+function labelWidth(label: string, weight: number): number {
+    if (measureContext === undefined) {
+        measureContext = typeof document === 'undefined' ? null : document.createElement('canvas').getContext('2d');
+    }
+    if (!measureContext) {
+        return label.length * CHAR_WIDTH;
+    }
+    measureContext.font = `${weight} 14px ${getComputedStyle(document.body).getPropertyValue('--font-interface')}`;
+    return measureContext.measureText(label).width;
+}
+
 /** Estimated box size before the node is measured. */
 export function estimateSize(title: string, depth: number, preview?: string, media?: string[], text?: string): { width: number; height: number } {
     if (text !== undefined) {
@@ -104,9 +120,9 @@ export function estimateSize(title: string, depth: number, preview?: string, med
     }
     if (depth === 0) {
         // One line of semibold text in an ellipse as tall as `.mdmap-root-node`'s min-height.
-        return { width: Math.max(ROOT_SIZE, Math.round(shortLabel(title).length * CHAR_WIDTH + PADDING_X)), height: ROOT_SIZE };
+        return { width: Math.max(ROOT_SIZE, Math.ceil(labelWidth(shortLabel(title), 600) + PADDING_X + BORDER_X)), height: ROOT_SIZE };
     }
-    const titleWidth = Math.round(shortLabel(title).length * CHAR_WIDTH + PADDING_X);
+    const titleWidth = Math.ceil(labelWidth(shortLabel(title), 400) + PADDING_X + BORDER_X);
     const previewWidth = preview ? Math.min(PREVIEW_MAX_WIDTH, Math.round(preview.length * PREVIEW_CHAR_WIDTH + PADDING_X)) : 0;
     const mediaHeight = media && media.length > 0 ? THUMB_HEIGHT + 6 : 0;
     const mediaWidth = media && media.length > 0 ? Math.min(media.length, 2) * (THUMB_WIDTH + 6) + PADDING_X : 0;
