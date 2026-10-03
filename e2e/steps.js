@@ -20,7 +20,7 @@ async function selectedTitles(page) {
   await dblClick(page, r1);
   await page.keyboard.down('Meta'); await page.keyboard.press('a', { commands: ['SelectAll'] }); await page.keyboard.up('Meta'); // over CDP, macOS needs the editing command
   await typeText(page, 'Abertura');
-  await page.keyboard.press('Enter');
+  await page.keyboard.press('Escape'); // ends the edit and keeps the text
   await report(ctx, 'steps-01-rename');
 
   // 2. child
@@ -28,7 +28,7 @@ async function selectedTitles(page) {
   await page.keyboard.press('Tab');
   await sleep(200);
   await typeText(page, 'Fontes');
-  await page.keyboard.press('Enter');
+  await page.keyboard.press('Escape');
   await report(ctx, 'steps-02-child');
 
   // 3. sibling
@@ -36,7 +36,7 @@ async function selectedTitles(page) {
   await page.keyboard.press('Enter');
   await sleep(200);
   await typeText(page, 'Livros');
-  await page.keyboard.press('Enter');
+  await page.keyboard.press('Escape');
   await report(ctx, 'steps-03-sibling');
 
   // 4. delete

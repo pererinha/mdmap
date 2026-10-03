@@ -18,7 +18,7 @@ const CANAL_LISTS = '# Canal\n\n## Pesquisa\nnotas da pesquisa\n- Referências\n
   await dblClick(page, await clickNode(page, 'Artigos'));
   await page.keyboard.down('Meta'); await page.keyboard.press('a', { commands: ['SelectAll'] }); await page.keyboard.up('Meta'); // over CDP, macOS needs the editing command
   await page.keyboard.type('Papers', { delay: 20 });
-  await page.keyboard.press('Enter');
+  await page.keyboard.press('Escape');
   await report(ctx, 'lists-01-rename-item');
 
   // 2. sibling item after "Referências"
@@ -26,7 +26,7 @@ const CANAL_LISTS = '# Canal\n\n## Pesquisa\nnotas da pesquisa\n- Referências\n
   await page.keyboard.press('Enter');
   await sleep(200);
   await page.keyboard.type('Livros', { delay: 20 });
-  await page.keyboard.press('Enter');
+  await page.keyboard.press('Escape');
   await report(ctx, 'lists-02-sibling-item');
 
   // 3. nested item under "Papers"
@@ -34,7 +34,7 @@ const CANAL_LISTS = '# Canal\n\n## Pesquisa\nnotas da pesquisa\n- Referências\n
   await page.keyboard.press('Tab');
   await sleep(200);
   await page.keyboard.type('Scholar', { delay: 20 });
-  await page.keyboard.press('Enter');
+  await page.keyboard.press('Escape');
   await report(ctx, 'lists-03-nested-item');
 
   // 4. a new child of the heading "Roteiro" is a heading
@@ -42,7 +42,7 @@ const CANAL_LISTS = '# Canal\n\n## Pesquisa\nnotas da pesquisa\n- Referências\n
   await page.keyboard.press('Tab');
   await sleep(200);
   await page.keyboard.type('Encerramento', { delay: 20 });
-  await page.keyboard.press('Enter');
+  await page.keyboard.press('Escape');
   await report(ctx, 'lists-04-heading-child');
 
   // 5. with the setting off, the same note has no list nodes

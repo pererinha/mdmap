@@ -5,7 +5,7 @@
  * every node to the new layout and the viewport to its bounds. On a trackpad,
  * two-finger scrolling moves the map as far as the fingers move, like a web
  * page, and pinching zooms. Keys:
- * double-click edits the text in place, Tab adds a child, Enter adds a sibling, Delete removes,
+ * double-click edits the text in place until a click outside or Escape, Tab adds a child, Enter adds a sibling, Delete removes,
  * Alt+Up/Down reorders, drag onto a node reparents, Cmd+Z / Cmd+Shift+Z
  * undo and redo. The search field at the top-left highlights the nodes that
  * contain its text; Enter and Shift+Enter center the next and previous one.
@@ -124,14 +124,14 @@ function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
         el.focus();
         placeCaret(el, data.editPoint);
     }, [data.editing]);
-    // Enter, Escape and the blur that follows them all end the edit; only the first one counts.
-    const finish = (el: HTMLElement, commit: boolean) => {
+    // A click outside or Escape ends the edit and keeps the text; Escape's own blur then comes second and is ignored.
+    const finish = (el: HTMLElement) => {
         if (finished.current) {
             return;
         }
         finished.current = true;
         const text = editedText(el, paragraph);
-        if (commit && text && text !== original.current) {
+        if (text && text !== original.current) {
             data.onCommit(id, text);
         } else {
             data.onCancel();
@@ -169,19 +169,22 @@ function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
                     onInput={e => data.onEditInput(id, e.currentTarget.textContent ?? '')}
                     onKeyDown={e => {
                         e.stopPropagation();
-                        // Enter may confirm an input method's composition; it must not end the edit then.
+                        // Keys that belong to an input method's composition are its own.
                         if (e.nativeEvent.isComposing || e.keyCode === 229) {
                             return;
                         }
                         if (e.key === 'Escape') {
                             e.preventDefault();
-                            finish(e.currentTarget, false);
-                        } else if (e.key === 'Enter' && !(paragraph && e.shiftKey)) {
+                            const map = e.currentTarget.closest<HTMLElement>('.mdmap-root');
+                            finish(e.currentTarget);
+                            // The keyboard goes back to the map, so Tab, Enter and Cmd+Z act on the node right away.
+                            map?.focus();
+                        } else if (e.key === 'Enter' && !paragraph) {
+                            // A heading or a list item is one line in Markdown; Enter and Shift+Enter add lines only in a paragraph.
                             e.preventDefault();
-                            finish(e.currentTarget, true);
                         }
                     }}
-                    onBlur={e => finish(e.currentTarget, true)}
+                    onBlur={e => finish(e.currentTarget)}
                 />
             ) : paragraph ? (
                 <span key="label" className="mdmap-text" style={{ WebkitLineClamp: data.textLines }}>
