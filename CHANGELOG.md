@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Edges meet the root's ellipse. With a long title they met a point below it,
+  because the root's box was a square while the ellipse is one line tall.
+- Node boxes fit their labels: each label is measured in the node's font.
+  Labels with wide letters, such as "Comments", no longer run into the box's
+  border, and long labels no longer get boxes much wider than their text.
+- The map no longer shows the React Flow link in its bottom-right corner.
+- The map view's title starts with "mdmap:" instead of "Mind map:".
+
 ## 1.0.1
 
 - React Flow's styles ship in `styles.css`, which Obsidian loads with the
