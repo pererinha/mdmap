@@ -4,11 +4,14 @@
 
 - Editing happens in the node itself: a double-click puts the caret where you
   clicked, in the same text and box, instead of opening a text field. The box
-  and the nodes around it follow the text as you type, and the note is written
-  on Enter; Escape puts everything back. A title longer than 40 characters
-  shows whole while it is edited. A paragraph block is edited whole, every line
-  of it, with Shift+Enter for a new line; tables and code between its
-  paragraphs stay where they are.
+  and the nodes around it follow the text as you type. A click outside or
+  Escape ends the edit and writes the note; after Escape the keyboard is back
+  on the map, so Tab, Enter and Cmd+Z act on the node. A title longer than 40
+  characters shows whole while it is edited. A paragraph block is edited whole,
+  every line of it, and Enter or Shift+Enter adds a line; tables and code
+  between its paragraphs stay where they are. Its image embeds show as Markdown
+  (`![[image.png]]`) where the note has them, with the images still under the
+  text, and editing or deleting that line changes the image as you type.
 - Search: a field at the top-left of the map, also reached with Cmd/Ctrl+F
   while the map has focus, highlights the nodes whose title or paragraph text
   contains what you type and shows how many there are. Enter and Shift+Enter

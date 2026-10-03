@@ -100,7 +100,7 @@ The plugin is not in the community directory yet. To install it manually:
 
 | Action | Input |
 |---|---|
-| Edit a node's text | Double-click where the caret should go and type in the node itself; Enter saves, Escape cancels. In a paragraph, Shift+Enter adds a line |
+| Edit a node's text | Double-click where the caret should go and type in the node itself; click outside or press Escape to finish (Cmd+Z then undoes it). In a paragraph, Enter and Shift+Enter add a line |
 | Add a child | Tab |
 | Add a sibling | Enter |
 | Delete | Delete or Backspace |
