@@ -28,7 +28,7 @@ export default class EditorView extends ItemView {
     }
 
     getDisplayText(): string {
-        return `Mind map: ${this.filePath ?? ''}`;
+        return `mdmap: ${this.filePath ?? ''}`;
     }
 
     getIcon(): string {
