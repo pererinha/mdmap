@@ -103,8 +103,8 @@ export function estimateSize(title: string, depth: number, preview?: string, med
         return { width: PARAGRAPH_WIDTH, height: paragraphLines(text) * PARAGRAPH_LINE_HEIGHT + 14 + mediaHeight };
     }
     if (depth === 0) {
-        const side = Math.max(ROOT_SIZE, Math.round(shortLabel(title).length * CHAR_WIDTH + PADDING_X));
-        return { width: side, height: side };
+        // One line of semibold text in an ellipse as tall as `.mdmap-root-node`'s min-height.
+        return { width: Math.max(ROOT_SIZE, Math.round(shortLabel(title).length * CHAR_WIDTH + PADDING_X)), height: ROOT_SIZE };
     }
     const titleWidth = Math.round(shortLabel(title).length * CHAR_WIDTH + PADDING_X);
     const previewWidth = preview ? Math.min(PREVIEW_MAX_WIDTH, Math.round(preview.length * PREVIEW_CHAR_WIDTH + PADDING_X)) : 0;
