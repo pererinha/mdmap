@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import { PlainNode } from '../src/md-tree';
-import { searchNodes } from '../src/tree-ops';
+import { findNode, searchNodes, setText } from '../src/tree-ops';
 
 const TREE: PlainNode = {
     id: 'root',
@@ -22,5 +22,13 @@ describe('tree-ops', () => {
     it('searchNodes finds nothing for an empty query', () => {
         expect(searchNodes(TREE, '')).to.deep.equal([]);
         expect(searchNodes(TREE, '   ')).to.deep.equal([]);
+    });
+
+    it('setText gives a paragraph its whole text and first line, any other node its title', () => {
+        const edited = setText(setText(TREE, 'b', 'Faro\nthen Porto', true), 'c', 'Costs');
+        expect(findNode(edited, 'b')).to.include({ title: 'Faro', text: 'Faro\nthen Porto', editing: true });
+        expect(findNode(edited, 'c')).to.include({ title: 'Costs' });
+        expect(findNode(edited, 'c')!.editing).to.equal(undefined);
+        expect(findNode(TREE, 'b')!.title).to.equal('Stops');
     });
 });

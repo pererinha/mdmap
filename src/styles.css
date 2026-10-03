@@ -125,11 +125,27 @@
     opacity: 0;
     pointer-events: none;
 }
-.mdmap-input {
-    font: inherit;
-    width: 100%;
-    min-width: 80px;
-    color: var(--text-normal);
+/*
+ * The label while it is edited: the same text in the same box, plus a caret.
+ * Chrome forces its own white-space on plaintext-only editing, so it is set here.
+ */
+.mdmap-editable {
+    outline: none;
+    cursor: text;
+    white-space: pre;
+}
+.mdmap-title.mdmap-editable {
+    display: inline-block;
+    min-width: 1px;
+}
+.mdmap-text.mdmap-editable {
+    display: block;
+    white-space: pre-wrap;
+}
+/* A paragraph being edited grows with its text instead of cutting it. */
+.mdmap-paragraph-node.mdmap-editing {
+    height: auto;
+    min-height: 100%;
 }
 .mdmap-panel {
     display: flex;

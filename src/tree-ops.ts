@@ -60,8 +60,19 @@ function mapTree(node: PlainNode, fn: (node: PlainNode) => PlainNode): PlainNode
     return { ...mapped, children: mapped.children.map(child => mapTree(child, fn)) };
 }
 
-export function rename(root: PlainNode, id: string, title: string): PlainNode {
-    return mapTree(root, node => (node.id === id ? { ...node, title } : node));
+/**
+ * Sets the node's text: a paragraph takes it whole, with its first line as the
+ * title; any other node takes it as its title. `editing` marks the node for the
+ * layout while the user types.
+ */
+export function setText(root: PlainNode, id: string, text: string, editing = false): PlainNode {
+    return mapTree(root, node => {
+        if (node.id !== id) {
+            return node;
+        }
+        const edited = node.text === undefined ? { ...node, title: text } : { ...node, title: text.split('\n')[0], text };
+        return editing ? { ...edited, editing } : edited;
+    });
 }
 
 /** Appends a child and returns the new tree with the child's id. */

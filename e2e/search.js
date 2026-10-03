@@ -87,7 +87,7 @@ const centered = s => s.offset && Math.abs(s.offset.dx) <= 3 && Math.abs(s.offse
   console.log('Backspace: query', JSON.stringify(s.query), '| note unchanged:', (await md(page, FILE)) === NOTE);
   await page.keyboard.press('Tab');
   await sleep(500);
-  console.log('Tab: note unchanged:', (await md(page, FILE)) === NOTE, '| editing a node:', await page.evaluate(() => !!document.querySelector('.mdmap-input')));
+  console.log('Tab: note unchanged:', (await md(page, FILE)) === NOTE, '| editing a node:', await page.evaluate(() => !!document.querySelector('.mdmap-editable')));
 
   // 5. Escape clears the search and gives the keyboard back to the map
   await page.click('.mdmap-search-input');

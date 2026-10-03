@@ -5,13 +5,13 @@
  * every node to the new layout and the viewport to its bounds. On a trackpad,
  * two-finger scrolling moves the map as far as the fingers move, like a web
  * page, and pinching zooms. Keys:
- * double-click edits, Tab adds a child, Enter adds a sibling, Delete removes,
+ * double-click edits the text in place, Tab adds a child, Enter adds a sibling, Delete removes,
  * Alt+Up/Down reorders, drag onto a node reparents, Cmd+Z / Cmd+Shift+Z
  * undo and redo. The search field at the top-left highlights the nodes that
  * contain its text; Enter and Shift+Enter center the next and previous one.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import {
     Background,
@@ -30,7 +30,7 @@ import type { Edge, Node, NodeProps, OnNodeDrag, OnSelectionChangeFunc, ReactFlo
 import { setIcon } from 'obsidian';
 import { PlainNode, XY } from './md-tree';
 import { Facing, Layout, MdNodeData, NODE_TYPE, layoutTree } from './tree-layout';
-import { addChild, addSiblingAfter, isDescendant, moveInto, moveSibling, remove, rename, searchNodes } from './tree-ops';
+import { addChild, addSiblingAfter, findNode, isDescendant, moveInto, moveSibling, remove, searchNodes, setText } from './tree-ops';
 
 export interface ResolvedMedia {
     src: string;
@@ -73,7 +73,11 @@ interface EditorNodeData extends MdNodeData {
     resolved: Array<ResolvedMedia & { link: string }>;
     onOpenMedia?(link: string): void;
     onCopy?(id: string): void;
-    onCommit(id: string, title: string): void;
+    /** Where the double-click that started editing landed, for the caret. */
+    editPoint?: XY;
+    /** The text being typed, so the layout can follow it. */
+    onEditInput(id: string, text: string): void;
+    onCommit(id: string, text: string): void;
     onCancel(): void;
 }
 
@@ -82,7 +86,56 @@ type EditorNode = Node<EditorNodeData, typeof NODE_TYPE>;
 const FACINGS: Facing[] = ['left', 'right', 'top', 'bottom'];
 const HANDLE_POSITION: Record<Facing, Position> = { left: Position.Left, right: Position.Right, top: Position.Top, bottom: Position.Bottom };
 
+/** The edited text as the note gets it: a paragraph keeps its lines, any other node is one line. */
+function editedText(el: HTMLElement, paragraph: boolean): string {
+    const text = el.textContent ?? '';
+    return paragraph ? text.split('\n').map(line => line.trim()).join('\n').trim() : text.replace(/\s+/g, ' ').trim();
+}
+
+/** Puts the caret where the screen point falls on the element's text, or selects all of it. */
+function placeCaret(el: HTMLElement, point: XY | undefined) {
+    const range = document.createRange();
+    const at = point ? document.caretPositionFromPoint(point.x, point.y) : null;
+    if (at && el.contains(at.offsetNode)) {
+        range.setStart(at.offsetNode, at.offset);
+    } else {
+        range.selectNodeContents(el);
+    }
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+}
+
 function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
+    const paragraph = data.text !== undefined;
+    // Editing happens in the label itself, so the text keeps its font, wrapping and box.
+    const editRef = useRef<HTMLSpanElement>(null);
+    const original = useRef('');
+    const finished = useRef(false);
+    useLayoutEffect(() => {
+        const el = editRef.current;
+        if (!data.editing || !el) {
+            return;
+        }
+        original.current = data.text ?? data.title;
+        finished.current = false;
+        el.textContent = original.current;
+        el.focus();
+        placeCaret(el, data.editPoint);
+    }, [data.editing]);
+    // Enter, Escape and the blur that follows them all end the edit; only the first one counts.
+    const finish = (el: HTMLElement, commit: boolean) => {
+        if (finished.current) {
+            return;
+        }
+        finished.current = true;
+        const text = editedText(el, paragraph);
+        if (commit && text && text !== original.current) {
+            data.onCommit(id, text);
+        } else {
+            data.onCancel();
+        }
+    };
     const classes = [
         'mdmap-node',
         data.depth === 0 ? 'mdmap-root-node' : '',
@@ -90,6 +143,7 @@ function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
         data.kind === 'paragraph' ? 'mdmap-paragraph-node' : '',
         selected ? 'mdmap-selected' : '',
         data.matched ? 'mdmap-match' : '',
+        data.editing ? 'mdmap-editing' : '',
     ].join(' ');
     const style = data.color ? ({ '--mdmap-branch': data.color } as CSSProperties) : undefined;
     // A source and a target handle on every side; each edge picks the pair that faces the other node.
@@ -101,32 +155,41 @@ function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
     ));
     return (
         <>
-        <div className={classes} style={style} title={data.text ?? data.title}>
+        <div className={classes} style={style} title={data.editing ? undefined : data.text ?? data.title}>
             {handles}
             {data.editing ? (
-                <input
-                    className="mdmap-input"
-                    defaultValue={data.title}
-                    autoFocus
-                    onFocus={e => e.target.select()}
+                <span
+                    key="editing"
+                    ref={editRef}
+                    className={`${paragraph ? 'mdmap-text' : 'mdmap-title'} mdmap-editable nodrag nopan`}
+                    contentEditable="plaintext-only"
+                    suppressContentEditableWarning
+                    spellCheck={false}
+                    onInput={e => data.onEditInput(id, e.currentTarget.textContent ?? '')}
                     onKeyDown={e => {
                         e.stopPropagation();
-                        if (e.key === 'Enter') {
-                            data.onCommit(id, e.currentTarget.value);
-                        } else if (e.key === 'Escape') {
-                            data.onCancel();
+                        // Enter may confirm an input method's composition; it must not end the edit then.
+                        if (e.nativeEvent.isComposing || e.keyCode === 229) {
+                            return;
+                        }
+                        if (e.key === 'Escape') {
+                            e.preventDefault();
+                            finish(e.currentTarget, false);
+                        } else if (e.key === 'Enter' && !(paragraph && e.shiftKey)) {
+                            e.preventDefault();
+                            finish(e.currentTarget, true);
                         }
                     }}
-                    onBlur={e => data.onCommit(id, e.currentTarget.value)}
+                    onBlur={e => finish(e.currentTarget, true)}
                 />
             ) : (
                 <>
-                    {data.text !== undefined ? (
-                        <span className="mdmap-text" style={{ WebkitLineClamp: data.textLines }}>
+                    {paragraph ? (
+                        <span key="label" className="mdmap-text" style={{ WebkitLineClamp: data.textLines }}>
                             {data.text}
                         </span>
                     ) : (
-                        <span className="mdmap-title">{data.label}</span>
+                        <span key="label" className="mdmap-title">{data.label}</span>
                     )}
                     {data.preview && data.depth > 0 && <span className="mdmap-preview">{data.preview}</span>}
                     {data.resolved.length > 0 && (
@@ -205,6 +268,8 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
     const [nodes, setNodes, onNodesChange] = useNodesState<EditorNode>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [editingId, setEditingId] = useState<string | null>(null);
+    /** Where the double-click that started the current edit landed. */
+    const editPoint = useRef<XY | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const searchRef = useRef<HTMLInputElement>(null);
     const [query, setQuery] = useState('');
@@ -231,6 +296,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                     data: {
                         ...node.data,
                         editing: false,
+                        onEditInput,
                         onCommit,
                         onCancel,
                         onOpenMedia,
@@ -398,26 +464,40 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
         [render, onChange],
     );
 
+    /** Lays the map out with the text being typed, without writing the note: the box and its neighbours follow the text. */
+    const onEditInput = useCallback(
+        (id: string, text: string) => {
+            render(setText(rootRef.current, id, text, true));
+        },
+        [render],
+    );
+
     const startEditing = useCallback(
-        (id: string) => {
+        (id: string, point?: XY) => {
             selectedId.current = id;
+            editPoint.current = point ?? null;
+            const node = findNode(rootRef.current, id);
+            if (node) {
+                // A long title or paragraph shows whole while it is edited.
+                onEditInput(id, node.text ?? node.title);
+            }
             setEditingId(id);
         },
-        [],
+        [onEditInput],
     );
 
     const onCommit = useCallback(
-        (id: string, title: string) => {
+        (id: string, text: string) => {
             setEditingId(current => (current === id ? null : current));
-            const trimmed = title.trim();
-            if (trimmed) {
-                apply(rename(rootRef.current, id, trimmed), 'rename');
-            }
+            apply(setText(rootRef.current, id, text), 'rename');
         },
         [apply],
     );
 
-    const onCancel = useCallback(() => setEditingId(null), []);
+    const onCancel = useCallback(() => {
+        setEditingId(null);
+        render(rootRef.current);
+    }, [render]);
 
     const onSelectionChange = useCallback<OnSelectionChangeFunc<EditorNode>>(({ nodes: selected }) => {
         selectedId.current = selected[0]?.id ?? null;
@@ -529,7 +609,11 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
     );
 
     const displayNodes = useMemo<EditorNode[]>(
-        () => nodes.map(node => ({ ...node, data: { ...node.data, editing: node.id === editingId, matched: matched.has(node.id) } })),
+        () =>
+            nodes.map(node => ({
+                ...node,
+                data: { ...node.data, editing: node.id === editingId, editPoint: node.id === editingId ? editPoint.current ?? undefined : undefined, matched: matched.has(node.id) },
+            })),
         [nodes, editingId, matched],
     );
 
@@ -544,7 +628,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 onSelectionChange={onSelectionChange}
                 onNodeClick={(_event, node) => onClickNode?.(node.id)}
                 onPaneClick={() => onClickNode?.(null)}
-                onNodeDoubleClick={(_event, node) => startEditing(node.id)}
+                onNodeDoubleClick={(event, node) => startEditing(node.id, { x: event.clientX, y: event.clientY })}
                 onNodeDragStart={onNodeDragStart}
                 onNodeDragStop={onNodeDragStop}
                 nodeDragThreshold={4}

@@ -96,6 +96,8 @@ export interface PlainNode {
     media?: string[];
     /** Paragraphs: the paragraph's whole text, its lines joined with newlines. Reconcile writes it back when it changes. */
     text?: string;
+    /** Display only: the node is being edited, so the layout sizes it for its whole title or text. */
+    editing?: boolean;
 }
 
 export interface ParseOptions {

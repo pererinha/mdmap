@@ -91,11 +91,11 @@ export function shortLabel(title: string): string {
     return title.length > LABEL_MAX ? `${title.slice(0, LABEL_MAX - 1).trimEnd()}…` : title;
 }
 
-/** Wrapped lines a paragraph's text takes in its block, up to PARAGRAPH_MAX_LINES. */
-export function paragraphLines(text: string): number {
+/** Wrapped lines a paragraph's text takes in its block, up to `max`. */
+export function paragraphLines(text: string, max = PARAGRAPH_MAX_LINES): number {
     const perLine = Math.floor((PARAGRAPH_WIDTH - PADDING_X - 2) / PARAGRAPH_CHAR_WIDTH);
     const lines = text.split('\n').reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / perLine)), 0);
-    return Math.min(PARAGRAPH_MAX_LINES, lines);
+    return Math.min(max, lines);
 }
 
 let measureContext: CanvasRenderingContext2D | null | undefined;
@@ -112,17 +112,18 @@ function labelWidth(label: string, weight: number): number {
     return measureContext.measureText(label).width;
 }
 
-/** Estimated box size before the node is measured. */
-export function estimateSize(title: string, depth: number, preview?: string, media?: string[], text?: string): { width: number; height: number } {
+/** Estimated box size before the node is measured. `whole`: the node is being edited and shows its whole title or text. */
+export function estimateSize(title: string, depth: number, preview?: string, media?: string[], text?: string, whole = false): { width: number; height: number } {
     if (text !== undefined) {
         const mediaHeight = media && media.length > 0 ? THUMB_HEIGHT + 6 : 0;
-        return { width: PARAGRAPH_WIDTH, height: paragraphLines(text) * PARAGRAPH_LINE_HEIGHT + 14 + mediaHeight };
+        return { width: PARAGRAPH_WIDTH, height: paragraphLines(text, whole ? Infinity : PARAGRAPH_MAX_LINES) * PARAGRAPH_LINE_HEIGHT + 14 + mediaHeight };
     }
+    const label = whole ? title : shortLabel(title);
     if (depth === 0) {
         // One line of semibold text in an ellipse as tall as `.mdmap-root-node`'s min-height.
-        return { width: Math.max(ROOT_SIZE, Math.ceil(labelWidth(shortLabel(title), 600) + PADDING_X + BORDER_X)), height: ROOT_SIZE };
+        return { width: Math.max(ROOT_SIZE, Math.ceil(labelWidth(label, 600) + PADDING_X + BORDER_X)), height: ROOT_SIZE };
     }
-    const titleWidth = Math.ceil(labelWidth(shortLabel(title), 400) + PADDING_X + BORDER_X);
+    const titleWidth = Math.ceil(labelWidth(label, 400) + PADDING_X + BORDER_X);
     const previewWidth = preview ? Math.min(PREVIEW_MAX_WIDTH, Math.round(preview.length * PREVIEW_CHAR_WIDTH + PADDING_X)) : 0;
     const mediaHeight = media && media.length > 0 ? THUMB_HEIGHT + 6 : 0;
     const mediaWidth = media && media.length > 0 ? Math.min(media.length, 2) * (THUMB_WIDTH + 6) + PADDING_X : 0;
@@ -157,7 +158,7 @@ function branchEdge(parent: PlainNode, node: PlainNode, color: string, facing: F
 
 /** Height of the block a subtree needs: its children stacked with GAP_Y, or the node itself if taller. */
 function blockHeights(node: PlainNode, depth: number, heights: Map<string, number>): number {
-    const own = estimateSize(node.title, depth, node.preview, node.media, node.text).height;
+    const own = estimateSize(node.title, depth, node.preview, node.media, node.text, node.editing).height;
     const stacked = node.children.reduce((sum, child, index) => sum + blockHeights(child, depth + 1, heights) + (index > 0 ? GAP_Y : 0), 0);
     const height = Math.max(own, stacked);
     heights.set(node.id, height);
@@ -184,7 +185,7 @@ function layoutSide(root: PlainNode, branches: Branch[], side: Side, heights: Ma
 
     /** Places the subtree in the block that starts at `top` and returns the node's centre y. */
     const place = (node: PlainNode, depth: number, color: string, parent: PlainNode, top: number): number => {
-        const size = estimateSize(node.title, depth, node.preview, node.media, node.text);
+        const size = estimateSize(node.title, depth, node.preview, node.media, node.text, node.editing);
         const block = heights.get(node.id)!;
         let centerY = top + block / 2;
         if (node.children.length > 0) {
@@ -294,7 +295,7 @@ function layoutTidy(root: PlainNode, layout: 'center' | 'right'): { nodes: MdFlo
     branches.forEach(branch => blockHeights(branch.node, 1, heights));
     const { right, left } = layout === 'right' ? { right: branches, left: [] } : balanceSides(branches, heights);
 
-    const rootSize = estimateSize(root.title, 0);
+    const rootSize = estimateSize(root.title, 0, undefined, undefined, undefined, root.editing);
     const sides = [
         { side: 'right' as Side, laid: layoutSide(root, right, 'right', heights) },
         { side: 'left' as Side, laid: layoutSide(root, left, 'left', heights) },
@@ -335,7 +336,7 @@ function layoutRadial(root: PlainNode): { nodes: MdFlowNode[]; edges: Edge[] } {
     interface Item { node: PlainNode; depth: number; color: string; parent?: PlainNode; size: { width: number; height: number }; angle: number }
     const items = new Map<string, Item>();
     const collect = (node: PlainNode, depth: number, color: string, parent?: PlainNode) => {
-        const item: Item = { node, depth, color, parent, size: estimateSize(node.title, depth, node.preview, node.media, node.text), angle: 0 };
+        const item: Item = { node, depth, color, parent, size: estimateSize(node.title, depth, node.preview, node.media, node.text, node.editing), angle: 0 };
         items.set(node.id, item);
         node.children.forEach((child, index) => collect(child, depth + 1, depth === 0 ? BRANCH_COLORS[index % BRANCH_COLORS.length] : color, node));
     };
