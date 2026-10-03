@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Editing happens in the node itself: a double-click puts the caret where you
+  clicked, in the same text and box, instead of opening a text field. The box
+  and the nodes around it follow the text as you type, and the note is written
+  on Enter; Escape puts everything back. A title longer than 40 characters
+  shows whole while it is edited. A paragraph block is edited whole, every line
+  of it, with Shift+Enter for a new line; tables and code between its
+  paragraphs stay where they are.
 - Search: a field at the top-left of the map, also reached with Cmd/Ctrl+F
   while the map has focus, highlights the nodes whose title or paragraph text
   contains what you type and shows how many there are. Enter and Shift+Enter
