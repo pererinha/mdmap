@@ -1,4 +1,4 @@
-import { ItemView, MarkdownView, Menu, Notice, Scope, TFile, WorkspaceLeaf } from 'obsidian';
+import { ItemView, MarkdownView, Menu, Notice, Scope, TFile, ViewStateResult, WorkspaceLeaf } from 'obsidian';
 import { createRoot, Root } from 'react-dom/client';
 import { EditorSync, whenSized } from './editor-sync';
 import { PlainNode, XY } from './md-tree';
@@ -39,7 +39,7 @@ export default class EditorView extends ItemView {
         return { file: this.filePath };
     }
 
-    async setState(state: { file?: string }, result: any) {
+    async setState(state: { file?: string }, result: ViewStateResult) {
         if (state?.file && state.file !== this.filePath) {
             this.filePath = state.file;
             await this.start();
@@ -121,12 +121,12 @@ export default class EditorView extends ItemView {
             <MapEditor
                 root={root}
                 positions={this.sync.positions()}
-                onChange={(next: PlainNode, source: string, positions: Record<string, XY>) => this.commit(next, source, positions)}
+                onChange={(next: PlainNode, source: string, positions: Record<string, XY>) => void this.commit(next, source, positions)}
                 onReady={handle => (this.editor = handle)}
                 resolveMedia={link => this.resolveMedia(link)}
-                onOpenMedia={link => this.app.workspace.openLinkText(link, this.filePath, true)}
+                onOpenMedia={link => void this.app.workspace.openLinkText(link, this.filePath, true)}
                 onClickNode={id => this.reveal(id)}
-                onCopyNode={id => this.copyNode(id)}
+                onCopyNode={id => void this.copyNode(id)}
             />,
         );
         this.sync.watch();

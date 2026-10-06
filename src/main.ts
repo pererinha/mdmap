@@ -11,7 +11,7 @@ export default class MdmapPlugin extends Plugin {
     settings: MdmapSettings;
 
     async onload() {
-        this.settings = { ...DEFAULT_SETTINGS, ...(await this.loadData()) };
+        this.settings = { ...DEFAULT_SETTINGS, ...((await this.loadData()) as Partial<MdmapSettings> | null) };
         this.registerView(VIEW_TYPE, leaf => new EditorView(leaf, this.settings, () => this.saveSettings()));
         this.registerEditorExtension(revealField);
         this.registerEditorExtension(followCursor((file, line, text) => this.focusHeading(file, line, text)));

@@ -55,15 +55,15 @@ interface MapEditorProps {
     root: PlainNode;
     /** Saved positions by node id. */
     positions?: Record<string, XY>;
-    onChange(root: PlainNode, source: string, positions: Record<string, XY>): void;
-    onReady(handle: MapEditorHandle): void;
+    onChange: (root: PlainNode, source: string, positions: Record<string, XY>) => void;
+    onReady: (handle: MapEditorHandle) => void;
     /** Turns an embed link into something the node can show; null hides it. */
-    resolveMedia?(link: string): ResolvedMedia | null;
-    onOpenMedia?(link: string): void;
+    resolveMedia?: (link: string) => ResolvedMedia | null;
+    onOpenMedia?: (link: string) => void;
     /** A click on a node, or null for a click on empty canvas. */
-    onClickNode?(id: string | null): void;
+    onClickNode?: (id: string | null) => void;
     /** The copy button on a node: the node and everything under it as Markdown. */
-    onCopyNode?(id: string): void;
+    onCopyNode?: (id: string) => void;
 }
 
 interface EditorNodeData extends MdNodeData {
@@ -374,7 +374,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
             if (container && target.length > 0) {
                 const bounds = { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
                 const viewport = getViewportForBounds(bounds, container.clientWidth, container.clientHeight, MIN_ZOOM, FIT_MAX_ZOOM, FIT_PADDING);
-                flow.setViewport(viewport, { duration: ORGANIZE_MS });
+                void flow.setViewport(viewport, { duration: ORGANIZE_MS });
             }
         },
         [flow, setNodes, stopAnimation],
@@ -430,7 +430,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 const { x, y } = node.internals.positionAbsolute;
                 const width = node.measured?.width ?? node.width ?? 0;
                 const height = node.measured?.height ?? node.height ?? 0;
-                flow.setCenter(x + width / 2, y + height / 2, { zoom: Math.max(flow.getZoom(), FOCUS_ZOOM), duration: ORGANIZE_MS });
+                void flow.setCenter(x + width / 2, y + height / 2, { zoom: Math.max(flow.getZoom(), FOCUS_ZOOM), duration: ORGANIZE_MS });
             },
             focusSearch() {
                 searchRef.current?.focus();
