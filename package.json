@@ -1,6 +1,6 @@
 {
   "name": "mdmap",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Obsidian plugin: edit a note's headings, list items and paragraphs as a mind map that writes back to the note.",
   "main": "main.js",
   "private": true,

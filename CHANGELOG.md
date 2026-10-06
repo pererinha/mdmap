@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.1
 
 - The "List items and paragraphs as nodes" setting shows up in Obsidian's
   settings search, from Obsidian 1.13 on.
