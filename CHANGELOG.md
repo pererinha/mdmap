@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- The "List items and paragraphs as nodes" setting shows up in Obsidian's
+  settings search, from Obsidian 1.13 on.
+- Each write to the note is logged with `console.debug` instead of
+  `console.log`, as Obsidian's plugin guidelines ask.
+- Releases come with GitHub artifact attestations for `main.js` and
+  `styles.css`, and their notes are this changelog's section.
+
 ## 1.2.0
 
 - A grip moves a node under another one. Every node except the root shows a
