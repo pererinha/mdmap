@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.0
 
 - A grip moves a node under another one. Every node except the root shows a
   dot on the side its edge comes in when you hover it or select it; drag the
