@@ -7,6 +7,10 @@ on:
 
 permissions:
   contents: write
+  # actions/attest signs the build provenance with the workflow's OIDC token.
+  id-token: write
+  attestations: write
+  artifact-metadata: write
 
 jobs:
   release:
@@ -19,7 +23,17 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      - name: Attest that the built files come from this commit
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            main.js
+            styles.css
+      # The release notes are the changelog's section for the tag; a tag without one stops here.
       - name: Create the release with the plugin files
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "${GITHUB_REF_NAME}" main.js manifest.json styles.css --title "${GITHUB_REF_NAME}"
+        run: |
+          awk -v heading="## ${GITHUB_REF_NAME}" '$0 == heading { found = 1; next } found && /^## / { exit } found' CHANGELOG.md > notes.md
+          test -n "$(tr -d '[:space:]' < notes.md)"
+          gh release create "${GITHUB_REF_NAME}" main.js manifest.json styles.css --title "${GITHUB_REF_NAME}" --notes-file notes.md
