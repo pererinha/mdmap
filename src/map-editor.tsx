@@ -6,8 +6,8 @@
  * two-finger scrolling moves the map as far as the fingers move, like a web
  * page, and pinching zooms. Keys:
  * double-click edits the text in place until a click outside or Escape, Tab adds a child, Enter adds a sibling, Delete removes,
- * Alt+Up/Down reorders, drag onto a node reparents, Cmd+Z / Cmd+Shift+Z
- * undo and redo. The search field at the top-left highlights the nodes that
+ * Alt+Up/Down reorders, dropping a node or the grip on its incoming side onto another node reparents,
+ * Cmd+Z / Cmd+Shift+Z undo and redo. The search field at the top-left highlights the nodes that
  * contain its text; Enter and Shift+Enter center the next and previous one.
  */
 
@@ -26,7 +26,7 @@ import {
     getViewportForBounds,
     useReactFlow,
 } from '@xyflow/react';
-import type { Edge, Node, NodeProps, OnNodeDrag, OnSelectionChangeFunc, ReactFlowInstance } from '@xyflow/react';
+import type { Edge, Node, NodeProps, OnConnectEnd, OnNodeDrag, OnSelectionChangeFunc, ReactFlowInstance } from '@xyflow/react';
 import { setIcon } from 'obsidian';
 import { PlainNode, XY } from './md-tree';
 import { Facing, Layout, MdNodeData, NODE_TYPE, layoutTree } from './tree-layout';
@@ -147,17 +147,21 @@ function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
         data.editing ? 'mdmap-editing' : '',
     ].join(' ');
     const style = data.color ? ({ '--mdmap-branch': data.color } as CSSProperties) : undefined;
-    // A source and a target handle on every side; each edge picks the pair that faces the other node.
+    // A source and a target handle on every side; each edge picks the pair that faces the other node. Only the grip starts a connection.
     const handles = FACINGS.map(facing => (
         <span key={facing}>
-            <Handle type="source" id={`out-${facing}`} position={HANDLE_POSITION[facing]} className="mdmap-handle" />
-            <Handle type="target" id={`in-${facing}`} position={HANDLE_POSITION[facing]} className="mdmap-handle" />
+            <Handle type="source" id={`out-${facing}`} position={HANDLE_POSITION[facing]} isConnectableStart={false} className="mdmap-handle" />
+            <Handle type="target" id={`in-${facing}`} position={HANDLE_POSITION[facing]} isConnectableStart={false} className="mdmap-handle" />
         </span>
     ));
     return (
         <>
         <div className={classes} style={style} title={data.editing ? undefined : data.text ?? data.title}>
             {handles}
+            {data.depth > 0 && !data.editing && (
+                // On the side the edge from the parent comes in; dragged onto another node, it moves this node under that one.
+                <Handle type="source" id="grip" position={data.side === 'left' ? Position.Right : Position.Left} className="mdmap-grip" aria-label="Drag onto another node to move this node under it" />
+            )}
             {data.editing ? (
                 <span
                     key="editing"
@@ -530,6 +534,20 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
         [flow, apply, render, onChange],
     );
 
+    // A grip released over a node moves the grip's node under it; anywhere else nothing changes.
+    const onConnectEnd = useCallback<OnConnectEnd>(
+        (event, connection) => {
+            const point = 'changedTouches' in event ? event.changedTouches[0] : event;
+            const over = document.elementFromPoint(point.clientX, point.clientY)?.closest<HTMLElement>('.react-flow__node');
+            const from = connection.fromNode?.id;
+            const to = over?.dataset.id ?? connection.toNode?.id;
+            if (from && to) {
+                apply(moveInto(rootRef.current, from, to), 'move');
+            }
+        },
+        [apply],
+    );
+
     const onKeyDown = useCallback(
         (event: ReactKeyboardEvent) => {
             if (editingId) {
@@ -631,13 +649,14 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 onNodeDoubleClick={(event, node) => startEditing(node.id, { x: event.clientX, y: event.clientY })}
                 onNodeDragStart={onNodeDragStart}
                 onNodeDragStop={onNodeDragStop}
+                onConnectEnd={onConnectEnd}
+                connectOnClick={false}
                 nodeDragThreshold={4}
                 panOnScroll
                 panOnScrollSpeed={1}
                 deleteKeyCode={null}
                 selectionKeyCode={null}
                 multiSelectionKeyCode={null}
-                nodesConnectable={false}
                 edgesFocusable={false}
                 minZoom={MIN_ZOOM}
                 maxZoom={2}
