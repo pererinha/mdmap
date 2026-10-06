@@ -63,7 +63,7 @@ export class EditorSync {
         this.tree = next;
         this.lastWritten = md;
         await this.app.vault.modify(this.file, md);
-        console.log(`[mdmap] ${source}: wrote ${this.file.path}`);
+        console.debug(`[mdmap] ${source}: wrote ${this.file.path}`);
         return true;
     }
 
@@ -98,7 +98,7 @@ export function whenSized(el: HTMLElement, frames = 60): Promise<boolean> {
             } else if (left <= 0) {
                 resolve(false);
             } else {
-                requestAnimationFrame(() => check(left - 1));
+                window.requestAnimationFrame(() => check(left - 1));
             }
         };
         check(frames);

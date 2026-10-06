@@ -348,7 +348,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                             : node;
                     }),
                 );
-                animation.current = t < 1 ? requestAnimationFrame(frame) : null;
+                animation.current = t < 1 ? window.requestAnimationFrame(frame) : null;
             };
             frame(started);
 
@@ -393,7 +393,9 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
         if (initialized && !fitted.current) {
             fitted.current = true;
             // The split that hosts the view may still be resizing on its first frames.
-            setTimeout(() => flow.fitView({ padding: FIT_PADDING, maxZoom: FIT_MAX_ZOOM }), 100);
+            window.setTimeout(() => {
+                void flow.fitView({ padding: FIT_PADDING, maxZoom: FIT_MAX_ZOOM });
+            }, 100);
         }
     }, [initialized, flow]);
 

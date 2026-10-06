@@ -17,6 +17,8 @@
  */
 
 import type { Edge, Node } from '@xyflow/react';
+// Declares Obsidian's global createEl for the unit tests, which compile this file on its own; nothing is imported at runtime.
+import type {} from 'obsidian';
 import { NodeKind, PlainNode, XY } from './md-tree';
 
 export const NODE_TYPE = 'md';
@@ -105,7 +107,7 @@ let measureContext: CanvasRenderingContext2D | null | undefined;
 /** Width of a label in the node font, measured on a canvas; CHAR_WIDTH per character where there is no DOM, as in the unit tests. */
 function labelWidth(label: string, weight: number): number {
     if (measureContext === undefined) {
-        measureContext = typeof document === 'undefined' ? null : document.createElement('canvas').getContext('2d');
+        measureContext = typeof document === 'undefined' ? null : createEl('canvas').getContext('2d');
     }
     if (!measureContext) {
         return label.length * CHAR_WIDTH;
