@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- A grip moves a node under another one. Every node except the root shows a
+  dot on the side its edge comes in when you hover it or select it; drag the
+  dot onto any part of another node and the node, with everything under it,
+  moves there and the note is rewritten. A drop on the empty canvas changes
+  nothing, and Cmd+Z undoes the move. It works with touch too: tap the node,
+  then drag its dot. Dragging the whole box onto another node still works.
+- A press on the middle of a node's side drags the node. It used to start an
+  invisible connection there, and the node stayed where it was.
+
 ## 1.1.0
 
 - Editing happens in the node itself: a double-click puts the caret where you
