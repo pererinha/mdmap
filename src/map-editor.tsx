@@ -607,6 +607,29 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
         render(rootRef.current);
     }, [render]);
 
+    // A phone's keyboard shrinks the pane while a node is edited: center the node if the pane no longer shows it whole.
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!editingId || !container) {
+            return;
+        }
+        const observer = new ResizeObserver(() => {
+            const el = container.querySelector(`.react-flow__node[data-id="${CSS.escape(editingId)}"]`);
+            const node = flow.getInternalNode(editingId);
+            if (!el || !node) {
+                return;
+            }
+            const box = el.getBoundingClientRect();
+            const pane = container.getBoundingClientRect();
+            if (box.top < pane.top || box.bottom > pane.bottom || box.left < pane.left || box.right > pane.right) {
+                const { x, y } = node.internals.positionAbsolute;
+                flow.setCenter(x + (node.measured?.width ?? 0) / 2, y + (node.measured?.height ?? 0) / 2, { zoom: flow.getZoom() });
+            }
+        });
+        observer.observe(container);
+        return () => observer.disconnect();
+    }, [editingId, flow]);
+
     const onSelectionChange = useCallback<OnSelectionChangeFunc<EditorNode>>(({ nodes: selected }) => {
         selectedId.current = selected[0]?.id ?? null;
     }, []);

@@ -1,4 +1,5 @@
-.mdmap-content {
+/* Beats Obsidian's padding on `.workspace-leaf-content .view-content`, which on a phone adds the keyboard's height. */
+.workspace-leaf-content .view-content.mdmap-content {
     padding: 0;
     overflow: hidden;
 }
