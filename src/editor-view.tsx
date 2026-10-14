@@ -24,6 +24,8 @@ export default class EditorView extends ItemView {
         leaf: WorkspaceLeaf,
         private settings: MdmapSettings,
         private saveSettings: () => Promise<void>,
+        /** What the gear in the map changes, the same as the plugin's settings tab. */
+        private settingsActions: SettingsActions,
     ) {
         super(leaf);
     }
@@ -68,37 +70,6 @@ export default class EditorView extends ItemView {
         });
     }
 
-    /** The settings under the gear in the map: each change is saved, and paragraphs and colours change on every open map. */
-    private settingsActions(): SettingsActions {
-        return {
-            toggleReveal: () => {
-                this.settings.revealInNote = !this.settings.revealInNote;
-                void this.saveSettings();
-                if (!this.settings.revealInNote) {
-                    this.reveal(null);
-                }
-            },
-            toggleParagraphs: () => {
-                this.settings.paragraphsAsNodes = !this.settings.paragraphsAsNodes;
-                void this.saveSettings();
-                this.forEachMap(view => view.reparse());
-            },
-            setColors: colors => {
-                this.settings.colors = colors;
-                void this.saveSettings();
-                this.forEachMap(view => view.applyColors());
-            },
-        };
-    }
-
-    private forEachMap(fn: (view: EditorView) => void) {
-        for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
-            if (leaf.view instanceof EditorView) {
-                fn(leaf.view);
-            }
-        }
-    }
-
     /**
      * The colours picked for the current theme, as the variables the map's palette reads (`src/styles.css`). On the
      * view, so a popout window gets them too.
@@ -117,7 +88,7 @@ export default class EditorView extends ItemView {
     }
 
     /** Scrolls the note open next to the map to the node's line and highlights it; null clears the highlight. */
-    private reveal(id: string | null) {
+    reveal(id: string | null) {
         const note = this.app.workspace
             .getLeavesOfType('markdown')
             .map(leaf => leaf.view)
@@ -169,7 +140,7 @@ export default class EditorView extends ItemView {
                 collapsed={this.collapsed}
                 onCollapse={ids => void this.saveCollapsed(ids)}
                 settings={this.settings}
-                settingsActions={this.settingsActions()}
+                settingsActions={this.settingsActions}
             />,
         );
         this.sync.watch();

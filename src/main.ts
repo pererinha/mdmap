@@ -3,6 +3,7 @@ import EditorView, { VIEW_TYPE } from './editor-view';
 import { mapRoot, parseMarkdown } from './md-tree';
 import { toMermaidMindmap } from './mermaid';
 import { DEFAULT_SETTINGS, MdmapSettings } from './settings';
+import { SettingsActions } from './settings-panel';
 import { MdmapSettingTab } from './settings-tab';
 import { revealField } from './reveal';
 import { followCursor } from './follow-cursor';
@@ -12,9 +13,30 @@ import { t } from './i18n';
 export default class MdmapPlugin extends Plugin {
     settings: MdmapSettings;
 
+    /** What the gear in a map and the settings tab change: each change is saved and shows on every open map. */
+    readonly settingsActions: SettingsActions = {
+        toggleReveal: () => {
+            this.settings.revealInNote = !this.settings.revealInNote;
+            void this.saveSettings();
+            if (!this.settings.revealInNote) {
+                this.maps().forEach(view => view.reveal(null));
+            }
+        },
+        toggleParagraphs: () => {
+            this.settings.paragraphsAsNodes = !this.settings.paragraphsAsNodes;
+            void this.saveSettings();
+            this.maps().forEach(view => view.reparse());
+        },
+        setColors: colors => {
+            this.settings.colors = colors;
+            void this.saveSettings();
+            this.maps().forEach(view => view.applyColors());
+        },
+    };
+
     async onload() {
         this.settings = { ...DEFAULT_SETTINGS, ...((await this.loadData()) as Partial<MdmapSettings> | null) };
-        this.registerView(VIEW_TYPE, leaf => new EditorView(leaf, this.settings, () => this.saveSettings()));
+        this.registerView(VIEW_TYPE, leaf => new EditorView(leaf, this.settings, () => this.saveSettings(), this.settingsActions));
         this.registerEditorExtension(revealField);
         this.registerEditorExtension(followCursor((file, line, text) => this.focusHeading(file, line, text)));
         this.registerEditorExtension(
@@ -61,6 +83,14 @@ export default class MdmapPlugin extends Plugin {
 
     async saveSettings() {
         await this.saveData(this.settings);
+    }
+
+    /** The open mind maps. */
+    private maps(): EditorView[] {
+        return this.app.workspace
+            .getLeavesOfType(VIEW_TYPE)
+            .map(leaf => leaf.view)
+            .filter((view): view is EditorView => view instanceof EditorView);
     }
 
     /** Opens the active note as a mind map in a split next to it. */

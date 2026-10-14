@@ -39,6 +39,7 @@ node e2e/copy.js       # the copy icon on a node puts its Markdown section on th
 node e2e/grip.js       # the grip shows when the pointer reaches it, also from outside the box; dragged onto another node it moves its node there; Cmd+Z
 node e2e/i18n.js       # with Obsidian in Brazilian Portuguese, commands, buttons, search and the settings under the gear are in Portuguese; the language is put back
 node e2e/width.js      # the map opens at the "Mind map width" share (30 %, 70 %), half and half without Obsidian's setDimension; the slider in the settings
+node e2e/settings.js   # the settings tab has the gear's switches, which change the open map, and opens the colour editor in a modal in the settings window; the settings search finds them; what was there before is put back
 node e2e/collapse.js   # Space and the fold button collapse and expand a node, the count of hidden nodes, kept on reopening; search and Tab expand; the note is not written
 node e2e/folds.js      # folding a heading or list item in the note collapses its node and back; the note's folds win when the map opens
 node e2e/focus.js      # the cursor on a heading in the note selects and centers its node; the keyboard stays in the note

@@ -1,14 +1,14 @@
 /*
  * The gear in the map's top-right panel and the settings it opens under it:
- * the two view toggles and the colours. A tab for the light and one for the
- * dark theme each show the centre and the six palette colours; the centre
- * opens a bar under them with its text colour, a palette colour one with its
- * lighter shades, which the top-level branches past the sixth take, one round
- * of the palette each. A position
- * with no colour picked shows the palette's colour for it. A click on a
- * swatch selects it and the row at the bottom shows it; with Edit on, that row
- * changes it with the colour picker or by typing its hex. "Use theme colours"
- * drops every picked colour.
+ * the two view toggles and the colours. The plugin's settings tab opens the
+ * same colour editor in a modal. A tab for the light and one for the dark
+ * theme each show the centre and the six palette colours; the centre opens a
+ * bar under them with its text colour, a palette colour one with its lighter
+ * shades, which the top-level branches past the sixth take, one round of the
+ * palette each. A position with no colour picked shows the palette's colour
+ * for it. A click on a swatch selects it and the row at the bottom shows it;
+ * with Edit on, that row changes it with the colour picker or by typing its
+ * hex. "Use theme colours" drops every picked colour.
  */
 
 import { useState } from 'react';
@@ -63,24 +63,28 @@ const slotLabel = (theme: Theme, slot: Slot) =>
     `${themeLabel(theme)} · ${slot === 'root' ? t('centerColor') : slot === 'rootText' ? t('centerText') : `${t('branchColor')} ${slot + 1}`}`;
 const swatchStyle = (color: string) => ({ '--mdmap-swatch': color }) as CSSProperties;
 
-interface SettingsPanelProps {
+/** Whether any colour is picked, in either theme. */
+export function hasPickedColors(colors: NodeColors): boolean {
+    return (['light', 'dark'] as const).some(of => colors[of].root !== '' || colors[of].rootText !== '' || colors[of].branches.some(color => color !== ''));
+}
+
+interface ColorEditorProps {
     /** Shared with the plugin and changed in place by the actions. */
     settings: MdmapSettings;
     actions: SettingsActions;
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
 }
 
-export function SettingsPanel({ settings, actions, open, onOpenChange }: SettingsPanelProps) {
+/** The colours: the theme tabs, the swatches and the bar under them, Edit and "Use theme colours", and the selected colour's row. */
+export function ColorEditor({ settings, actions }: ColorEditorProps) {
     const [editing, setEditing] = useState(false);
-    /** The theme's own colours, read when the panel opens. */
-    const [theme, setTheme] = useState<NodeColors>({ light: DEFAULT_SETTINGS.colors.light, dark: DEFAULT_SETTINGS.colors.dark });
-    /** The theme whose colours the swatches show, and the colour selected in it. */
-    const [tab, setTab] = useState<Theme>('light');
+    /** The theme's own colours, read when the editor shows. */
+    const [theme] = useState<NodeColors>(() => ({ light: themeColors(document, 'light'), dark: themeColors(document, 'dark') }));
+    /** The theme whose colours the swatches show, at first the one Obsidian is in, and the colour selected in it. */
+    const [tab, setTab] = useState<Theme>(() => (document.body.classList.contains('theme-dark') ? 'dark' : 'light'));
     const [slot, setSlot] = useState<Slot>('root');
     /** The hex being typed, until the field loses focus; null shows the selected colour. */
     const [typed, setTyped] = useState<string | null>(null);
-    // The actions change `settings` in place; this renders the panel again after one.
+    // The actions change `settings` in place; this renders the editor again after one.
     const [, setVersion] = useState(0);
     const run = (action: () => void) => {
         action();
@@ -105,23 +109,10 @@ export function SettingsPanel({ settings, actions, open, onOpenChange }: Setting
         return mixWithWhite(palette, whiteShare(at));
     };
     const pick = (color: string) => run(() => actions.setColors({ ...settings.colors, [tab]: withColor(settings.colors[tab], slot, color) }));
-    const picked = (['light', 'dark'] as const).some(of => {
-        const colors = settings.colors[of];
-        return colors.root !== '' || colors.rootText !== '' || colors.branches.some(color => color !== '');
-    });
     const select = (at: Slot) => {
         setSlot(at);
         setTyped(null);
     };
-
-    const toggle = (label: string, on: boolean, action: () => void, disabled = false) => (
-        <label className="mdmap-setting">
-            <span>{label}</span>
-            <span className={['checkbox-container', on ? 'is-enabled' : '', disabled ? 'is-disabled' : ''].join(' ')}>
-                <input type="checkbox" checked={on} disabled={disabled} onChange={() => run(action)} />
-            </span>
-        </label>
-    );
 
     const swatch = (at: Slot) => (
         <button
@@ -132,6 +123,126 @@ export function SettingsPanel({ settings, actions, open, onOpenChange }: Setting
             style={swatchStyle(shown(tab, at))}
             onClick={() => select(at)}
         />
+    );
+
+    return (
+        <div className="mdmap-colors">
+            <div className="mdmap-colors-heading">
+                <span>{t('nodeColors')}</span>
+                <span className="mdmap-tabs">
+                    {THEMES.map(({ theme: of, label }) => (
+                        <button
+                            key={of}
+                            className={tab === of ? 'is-active' : ''}
+                            aria-pressed={tab === of}
+                            onClick={() => {
+                                setTab(of);
+                                setTyped(null);
+                            }}
+                        >
+                            {label}
+                        </button>
+                    ))}
+                </span>
+            </div>
+
+            <div className="mdmap-swatches" data-theme={tab}>
+                {swatch('root')}
+                {Array.from({ length: PALETTE_SIZE }, (_, at) => swatch(at))}
+            </div>
+            <div className="mdmap-shades">
+                {parent === 'root' ? (
+                    // The centre's text, previewed on the centre's colour.
+                    <button
+                        className={['mdmap-swatch', 'mdmap-swatch-text', slot === 'rootText' ? 'is-selected' : ''].join(' ')}
+                        aria-label={slotLabel(tab, 'rootText')}
+                        aria-pressed={slot === 'rootText'}
+                        style={{ '--mdmap-swatch': shown(tab, 'root'), color: shown(tab, 'rootText') } as CSSProperties}
+                        onClick={() => select('rootText')}
+                    >
+                        Aa
+                    </button>
+                ) : (
+                    Array.from({ length: ROUNDS - 1 }, (_, round) => swatch(parent + (round + 1) * PALETTE_SIZE))
+                )}
+            </div>
+
+            <div className="mdmap-colors-actions">
+                <button className={editing ? 'mod-cta' : ''} aria-pressed={editing} onClick={() => setEditing(!editing)}>
+                    {t('editColors')}
+                </button>
+                <button
+                    className="mdmap-reset"
+                    disabled={!hasPickedColors(settings.colors)}
+                    onClick={() => {
+                        setTyped(null);
+                        run(() => actions.setColors(DEFAULT_SETTINGS.colors));
+                    }}
+                >
+                    {t('themeColors')}
+                </button>
+            </div>
+
+            <div className="mdmap-color-editor">
+                <span>{slotLabel(tab, slot)}</span>
+                <input
+                    type="color"
+                    aria-label={slotLabel(tab, slot)}
+                    disabled={!editing}
+                    value={shown(tab, slot)}
+                    onChange={event => {
+                        setTyped(null);
+                        pick(event.target.value);
+                    }}
+                />
+                <input
+                    type="text"
+                    className="mdmap-color-hex"
+                    aria-label={t('hexColor')}
+                    spellCheck={false}
+                    disabled={!editing}
+                    value={typed ?? shown(tab, slot)}
+                    onChange={event => {
+                        setTyped(event.target.value);
+                        const hex = parseHex(event.target.value);
+                        if (hex) {
+                            pick(hex);
+                        }
+                    }}
+                    onBlur={() => setTyped(null)}
+                />
+            </div>
+        </div>
+    );
+}
+
+interface SettingsPanelProps {
+    /** Shared with the plugin and changed in place by the actions. */
+    settings: MdmapSettings;
+    actions: SettingsActions;
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+}
+
+/** The gear next to the layout buttons and the panel it opens: the view toggles, then the colours. */
+export function SettingsPanel({ settings, actions, open, onOpenChange }: SettingsPanelProps) {
+    // The actions change `settings` in place; this renders the toggles again after one.
+    const [, setVersion] = useState(0);
+    const toggle = (label: string, on: boolean, action: () => void, disabled = false) => (
+        <label className="mdmap-setting">
+            <span>{label}</span>
+            <span className={['checkbox-container', on ? 'is-enabled' : '', disabled ? 'is-disabled' : ''].join(' ')}>
+                <input
+                    type="checkbox"
+                    checked={on}
+                    disabled={disabled}
+                    onChange={() => {
+                        action();
+                        setVersion(version => version + 1);
+                    }}
+                />
+            </span>
+        </label>
     );
 
     return (
@@ -146,16 +257,7 @@ export function SettingsPanel({ settings, actions, open, onOpenChange }: Setting
                         setIcon(el, 'settings');
                     }
                 }}
-                onClick={event => {
-                    if (!open) {
-                        const doc = event.currentTarget.ownerDocument;
-                        setTheme({ light: themeColors(doc, 'light'), dark: themeColors(doc, 'dark') });
-                        // The swatches open on the theme Obsidian is in.
-                        setTab(doc.body.classList.contains('theme-dark') ? 'dark' : 'light');
-                        setTyped(null);
-                    }
-                    onOpenChange(!open);
-                }}
+                onClick={() => onOpenChange(!open)}
             />
             {open && (
                 <div
@@ -169,92 +271,7 @@ export function SettingsPanel({ settings, actions, open, onOpenChange }: Setting
                     {toggle(t('showClickedNode'), settings.revealInNote, actions.toggleReveal)}
                     {/* Without list items as nodes, paragraphs are never nodes. */}
                     {toggle(t('showParagraphs'), settings.paragraphsAsNodes, actions.toggleParagraphs, !settings.listItemsAsNodes)}
-
-                    <div className="mdmap-colors-heading">
-                        <span>{t('nodeColors')}</span>
-                        <span className="mdmap-tabs">
-                            {THEMES.map(({ theme: of, label }) => (
-                                <button
-                                    key={of}
-                                    className={tab === of ? 'is-active' : ''}
-                                    aria-pressed={tab === of}
-                                    onClick={() => {
-                                        setTab(of);
-                                        setTyped(null);
-                                    }}
-                                >
-                                    {label}
-                                </button>
-                            ))}
-                        </span>
-                    </div>
-
-                    <div className="mdmap-swatches" data-theme={tab}>
-                        {swatch('root')}
-                        {Array.from({ length: PALETTE_SIZE }, (_, at) => swatch(at))}
-                    </div>
-                    <div className="mdmap-shades">
-                        {parent === 'root' ? (
-                            // The centre's text, previewed on the centre's colour.
-                            <button
-                                className={['mdmap-swatch', 'mdmap-swatch-text', slot === 'rootText' ? 'is-selected' : ''].join(' ')}
-                                aria-label={slotLabel(tab, 'rootText')}
-                                aria-pressed={slot === 'rootText'}
-                                style={{ '--mdmap-swatch': shown(tab, 'root'), color: shown(tab, 'rootText') } as CSSProperties}
-                                onClick={() => select('rootText')}
-                            >
-                                Aa
-                            </button>
-                        ) : (
-                            Array.from({ length: ROUNDS - 1 }, (_, round) => swatch(parent + (round + 1) * PALETTE_SIZE))
-                        )}
-                    </div>
-
-                    <div className="mdmap-colors-actions">
-                        <button className={editing ? 'mod-cta' : ''} aria-pressed={editing} onClick={() => setEditing(!editing)}>
-                            {t('editColors')}
-                        </button>
-                        <button
-                            className="mdmap-reset"
-                            disabled={!picked}
-                            onClick={() => {
-                                setTyped(null);
-                                run(() => actions.setColors(DEFAULT_SETTINGS.colors));
-                            }}
-                        >
-                            {t('themeColors')}
-                        </button>
-                    </div>
-
-                    <div className="mdmap-color-editor">
-                        <span>{slotLabel(tab, slot)}</span>
-                        <input
-                            type="color"
-                            aria-label={slotLabel(tab, slot)}
-                            disabled={!editing}
-                            value={shown(tab, slot)}
-                            onChange={event => {
-                                setTyped(null);
-                                pick(event.target.value);
-                            }}
-                        />
-                        <input
-                            type="text"
-                            className="mdmap-color-hex"
-                            aria-label={t('hexColor')}
-                            spellCheck={false}
-                            disabled={!editing}
-                            value={typed ?? shown(tab, slot)}
-                            onChange={event => {
-                                setTyped(event.target.value);
-                                const hex = parseHex(event.target.value);
-                                if (hex) {
-                                    pick(hex);
-                                }
-                            }}
-                            onBlur={() => setTyped(null)}
-                        />
-                    </div>
+                    <ColorEditor settings={settings} actions={actions} />
                 </div>
             )}
         </span>

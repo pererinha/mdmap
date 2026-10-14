@@ -306,12 +306,35 @@
 .mdmap-setting .checkbox-container:has(input:focus-visible) {
     outline: 2px solid var(--background-modifier-border-focus);
 }
+/* The colour editor, in the map's panel and in the modal the settings tab opens. */
+.mdmap-colors {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+/* In the panel, a line between the toggles and the colours. */
+.mdmap-settings .mdmap-colors {
+    padding-top: 10px;
+    border-top: 1px solid var(--background-modifier-border);
+}
+/* The modal is as wide as the editor needs, as the panel is. */
+.mdmap-colors-modal {
+    width: auto;
+}
+.mdmap-colors-modal .mdmap-colors {
+    width: 260px;
+}
+/* The modal's title names the colours, so the editor's own label is left out and the tabs start the row. */
+.mdmap-colors-modal .mdmap-colors-heading {
+    justify-content: flex-start;
+}
+.mdmap-colors-modal .mdmap-colors-heading > span:first-child {
+    display: none;
+}
 .mdmap-colors-heading {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding-top: 10px;
-    border-top: 1px solid var(--background-modifier-border);
     font-size: var(--font-ui-smaller);
     font-weight: var(--font-semibold);
     letter-spacing: 0.06em;
@@ -347,8 +370,8 @@
     align-items: center;
     gap: 6px;
 }
-.mdmap-settings .mdmap-swatch,
-.mdmap-settings .mdmap-swatch:hover {
+.mdmap-colors .mdmap-swatch,
+.mdmap-colors .mdmap-swatch:hover {
     width: 20px;
     height: 20px;
     min-height: 0;
@@ -359,20 +382,20 @@
     background-color: var(--mdmap-swatch);
     transition: transform 150ms ease-out, background-color 200ms ease-out;
 }
-.mdmap-settings .mdmap-swatch:hover {
+.mdmap-colors .mdmap-swatch:hover {
     transform: scale(1.12);
 }
-.mdmap-settings .mdmap-swatch-root,
-.mdmap-settings .mdmap-swatch-root:hover {
+.mdmap-colors .mdmap-swatch-root,
+.mdmap-colors .mdmap-swatch-root:hover {
     width: 26px;
     height: 26px;
     margin-right: 6px;
 }
-.mdmap-settings .mdmap-swatch.is-selected {
+.mdmap-colors .mdmap-swatch.is-selected {
     outline: 2px solid var(--text-normal);
     outline-offset: 2px;
 }
-.mdmap-settings .mdmap-swatch:focus-visible {
+.mdmap-colors .mdmap-swatch:focus-visible {
     box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
 }
 /* A palette colour's lighter shades, in a bar that drops from it; a notch under the colour points into the bar. */
@@ -390,11 +413,11 @@
         transform: translateY(-4px);
     }
 }
-.mdmap-settings .mdmap-swatch.is-parent {
+.mdmap-colors .mdmap-swatch.is-parent {
     position: relative;
 }
 /* The swatch's bottom is 3px above its row's, which is the panel's 10px gap above the bar: a 6px notch 7px below it touches the bar. */
-.mdmap-settings .mdmap-swatch.is-parent::after {
+.mdmap-colors .mdmap-swatch.is-parent::after {
     content: '';
     position: absolute;
     top: calc(100% + 7px);
@@ -412,18 +435,18 @@
 .is-mobile .mdmap-shades {
     gap: 8px;
 }
-.is-mobile .mdmap-settings .mdmap-swatch {
+.is-mobile .mdmap-colors .mdmap-swatch {
     width: 28px;
     height: 28px;
 }
-.is-mobile .mdmap-settings .mdmap-swatch-root {
+.is-mobile .mdmap-colors .mdmap-swatch-root {
     width: 34px;
     height: 34px;
 }
 /* The centre's text: "Aa" in its colour on the centre's colour. */
-.mdmap-settings .mdmap-swatch-text,
-.mdmap-settings .mdmap-swatch-text:hover,
-.is-mobile .mdmap-settings .mdmap-swatch-text {
+.mdmap-colors .mdmap-swatch-text,
+.mdmap-colors .mdmap-swatch-text:hover,
+.is-mobile .mdmap-colors .mdmap-swatch-text {
     width: auto;
     padding: 0 10px;
     border-radius: var(--radius-s);
@@ -431,7 +454,7 @@
     font-weight: var(--font-semibold);
 }
 /* The centre fills its row, so its notch starts 4px below it to touch the bar. */
-.mdmap-settings .mdmap-swatch-root.is-parent::after {
+.mdmap-colors .mdmap-swatch-root.is-parent::after {
     top: calc(100% + 4px);
 }
 .mdmap-colors-actions {
@@ -490,11 +513,11 @@
 @media (prefers-reduced-motion: reduce) {
     .mdmap-settings,
     .mdmap-shades,
-    .mdmap-settings .mdmap-swatch {
+    .mdmap-colors .mdmap-swatch {
         animation: none;
         transition: none;
     }
-    .mdmap-settings .mdmap-swatch:hover {
+    .mdmap-colors .mdmap-swatch:hover {
         transform: none;
     }
 }
