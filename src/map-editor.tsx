@@ -281,6 +281,8 @@ const FIT_MAX_ZOOM = 1.25;
 const ORGANIZE_MS = 450;
 /** Zoom a focused node is shown at, at least, so its text can be read. */
 const FOCUS_ZOOM = 1;
+/** Layer of the selected node, above every other box; a nested node is otherwise one layer above its parent. */
+const SELECTED_Z = 1000;
 
 function easeInOutCubic(t: number): number {
     return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
@@ -747,6 +749,8 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
         () =>
             nodes.map(node => ({
                 ...node,
+                // The selected node, the one being dragged too, and its subtree come over the other boxes (zIndexMode="manual").
+                zIndex: node.selected ? SELECTED_Z : undefined,
                 data: { ...node.data, editing: node.id === editingId, editPoint: node.id === editingId ? editPoint.current ?? undefined : undefined, matched: matched.has(node.id) },
             })),
         [nodes, editingId, matched],
@@ -777,6 +781,9 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 selectionKeyCode={null}
                 multiSelectionKeyCode={null}
                 edgesFocusable={false}
+                // Edges stay in the bottom layer, behind every box: by default an edge rises to the layer of the
+                // nested node it reaches, and to the top while that node is selected.
+                zIndexMode="manual"
                 minZoom={MIN_ZOOM}
                 maxZoom={2}
                 proOptions={{ hideAttribution: true }}

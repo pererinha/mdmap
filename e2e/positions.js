@@ -1,5 +1,6 @@
-// Free positions: drag a node to empty canvas, check the positions block, reopen, organize; then drag a parent and check its subtree follows.
-const { connect, sleep, resetVault, reloadPlugin, openEditor, rect, drag, report, view, CANAL } = require('./lib');
+// Free positions: drag a node to empty canvas, check the positions block, reopen, organize; then drag a parent and check its subtree follows;
+// an edge that crosses another box is drawn behind it, and a dragged box over the others.
+const { connect, sleep, resetVault, reloadPlugin, openEditor, rect, drag, clickNode, report, view, CANAL } = require('./lib');
 
 async function flowPos(page, title) {
   const n = await page.evaluate(`(${view})().editor.instance.getNodes().find(n => n.data.title === ${JSON.stringify(title)}).position`);
@@ -116,6 +117,51 @@ async function organize(page, layout) {
   // 10. Tidy tree: everything forgotten, file equals CANAL
   await organize(page, 'right');
   console.log('after Tidy equals CANAL:', (await report(ctx, 'positions-10-tidy')) === CANAL);
+
+  // 11. a node placed so its edge crosses another box, and selected: every edge stays in the layer under the boxes
+  const ref = await page.evaluate(`(${view})().editor.instance.getNodes().find(n => n.data.title === 'Referências')`);
+  const across = { x: Math.round(ref.position.x + ref.measured.width * 1.15), y: Math.round(ref.position.y - ref.measured.height * 1.5) };
+  await resetVault(page, CANAL + `\n%% mindmap-positions\nPesquisa/Artigos: ${across.x},${across.y}\n%%\n`);
+  await openEditor(page);
+  await clickNode(page, 'Artigos');
+  await sleep(400);
+  const layers = await page.evaluate(() => {
+    const byTitle = t => Array.from(document.querySelectorAll('.react-flow__node')).find(n => n.querySelector('.mdmap-title')?.textContent === t);
+    const edge = Array.from(document.querySelectorAll('.react-flow__edge')).find(e => e.getAttribute('data-testid')?.endsWith(byTitle('Artigos').dataset.id));
+    const path = edge.querySelector('path.react-flow__edge-path'), m = path.getScreenCTM(), box = byTitle('Referências').getBoundingClientRect();
+    let crosses = 0;
+    for (let l = 0; l < path.getTotalLength(); l += 4) {
+      const p = path.getPointAtLength(l);
+      const x = m.a * p.x + m.c * p.y + m.e, y = m.b * p.x + m.d * p.y + m.f;
+      if (x > box.left + 4 && x < box.right - 4 && y > box.top + 4 && y < box.bottom - 4) crosses++;
+    }
+    const z = el => Number(getComputedStyle(el).zIndex);
+    const edges = Array.from(document.querySelectorAll('.react-flow__edge')).map(e => e.closest('svg'));
+    const nodes = Array.from(document.querySelectorAll('.react-flow__node'));
+    // At the same layer, the nodes come later in the page and are drawn over the edges.
+    const edgesFirst = edges.every(svg => svg.compareDocumentPosition(document.querySelector('.react-flow__nodes')) & Node.DOCUMENT_POSITION_FOLLOWING);
+    return { crosses, maxEdge: Math.max(...edges.map(z)), minNode: Math.min(...nodes.map(z)), edgesFirst };
+  });
+  console.log('edge across a box, its node selected:', JSON.stringify(layers), '| edges behind every box:', layers.crosses > 0 && layers.maxEdge <= layers.minNode && layers.edgesFirst);
+  await report(ctx, 'positions-11-edge-behind');
+  await resetVault(page, CANAL);
+
+  // 12. a branch dragged over a deeper box is drawn over it while it moves; the note is put back after the drop
+  await openEditor(page);
+  const roteiro = await rect(page, 'Roteiro');
+  const artigos = await rect(page, 'Artigos');
+  await page.mouse.move(roteiro.x, roteiro.y);
+  await page.mouse.down();
+  for (let i = 1; i <= 12; i++) {
+    await page.mouse.move(roteiro.x + (artigos.x + 20 - roteiro.x) * i / 12, roteiro.y + (artigos.y + 8 - roteiro.y) * i / 12);
+    await sleep(30);
+  }
+  await sleep(300);
+  const onTop = await page.evaluate(p => document.elementFromPoint(p.x, p.y)?.closest('.react-flow__node')?.querySelector('.mdmap-title')?.textContent, { x: artigos.x + 20, y: artigos.y + 8 });
+  await page.mouse.up();
+  await sleep(500);
+  console.log('dragged Roteiro over Artigos, on top:', onTop, '| the dragged box is over:', onTop === 'Roteiro');
+  await resetVault(page, CANAL);
 
   ctx.browser.disconnect();
 })().catch(e => { console.error('ERR', e); process.exit(1); });
