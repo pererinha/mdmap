@@ -2,6 +2,7 @@
 
 ## 1.3.0
 
+- Needs Obsidian 1.13 or later. Older versions of Obsidian keep getting 1.2.1.
 - Nodes collapse and expand. Press Space on the selected node, or click the
   dot on the side its children leave from, and its children hide; a collapsed
   node shows how many nodes it hides. Collapsing a heading or a list item folds
