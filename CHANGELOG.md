@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.3.1
+
+- On a phone, the node you edit now stays visible above the keyboard. When the
+  keyboard opened, Obsidian shrank the window and also added empty space the
+  height of the keyboard at the bottom of the map. The map became a strip at
+  the top of the screen, and the node being edited could end up outside it. A
+  node that the keyboard would cover now moves up into view.
+- The switches under the map's gear no longer use the CSS selector `:has`,
+  which Obsidian's plugin review flags. Their focus outline now also shows
+  after a click, not only when you reach them with the keyboard.
+- Added a contributing guide: [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## 1.3.0
 
 - Needs Obsidian 1.13 or later. Older versions of Obsidian keep getting 1.2.1.
