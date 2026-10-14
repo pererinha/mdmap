@@ -161,10 +161,13 @@ function branchEdge(parent: PlainNode, node: PlainNode, color: string, facing: F
     };
 }
 
-/** Height of the block a subtree needs: its children stacked with GAP_Y, or the node itself if taller. */
-function blockHeights(node: PlainNode, depth: number, heights: Map<string, number>): number {
-    const own = estimateSize(node.title, depth, node.preview, node.media, node.text, node.editing).height;
-    const stacked = node.children.reduce((sum, child, index) => sum + blockHeights(child, depth + 1, heights) + (index > 0 ? GAP_Y : 0), 0);
+/**
+ * Height of the block a subtree needs: its children stacked with GAP_Y, or the node itself if taller. `resting`
+ * sizes a node being edited as when it is not, without its whole text.
+ */
+function blockHeights(node: PlainNode, depth: number, heights: Map<string, number>, resting = false): number {
+    const own = estimateSize(node.title, depth, node.preview, node.media, node.text, node.editing && !resting).height;
+    const stacked = node.children.reduce((sum, child, index) => sum + blockHeights(child, depth + 1, heights, resting) + (index > 0 ? GAP_Y : 0), 0);
     const height = Math.max(own, stacked);
     heights.set(node.id, height);
     return height;
@@ -306,9 +309,10 @@ function layoutTidy(root: PlainNode, layout: 'center' | 'right', whole: PlainNod
     const branches: Branch[] = root.children.map((node, index) => ({ node, color: BRANCH_COLORS[index % BRANCH_COLORS.length] }));
     const heights = new Map<string, number>();
     branches.forEach(branch => blockHeights(branch.node, 1, heights));
-    // Balanced on the whole tree, so collapsing a branch does not send branches to the other side.
+    // Balanced on the whole tree with every box at its resting size, so neither collapsing a branch nor editing a
+    // node, which shows its whole text, sends branches to the other side.
     const wholeHeights = new Map<string, number>();
-    whole.children.forEach(node => blockHeights(node, 1, wholeHeights));
+    whole.children.forEach(node => blockHeights(node, 1, wholeHeights, true));
     const { right, left } = layout === 'right' ? { right: branches, left: [] } : balanceSides(branches, wholeHeights);
 
     const rootSize = estimateSize(root.title, 0, undefined, undefined, undefined, root.editing);

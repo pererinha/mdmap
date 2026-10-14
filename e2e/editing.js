@@ -4,12 +4,15 @@
 // Cmd+Z undoes the edit. Enter never ends the edit: it adds a line in a paragraph and nothing in a heading. A long
 // title shows whole while edited, a paragraph block is edited whole and the table between its paragraphs stays, a
 // node added with Tab starts with its text selected, and a paragraph with an image shows its embed line as Markdown
-// while edited, with the image still under the text.
+// while edited, with the image still under the text. In a long note, a double-clicked paragraph is edited where it
+// was clicked: its whole text, taller than the box, does not send its branch to the other side of the root.
 const { connect, sleep, reloadPlugin, openEditor, clickNode, dblClick, md, shot } = require('./lib');
 
 const FILE = 'Editing-e2e.md';
 const IMAGE = 'Editing-e2e.png';
 const LONG = 'A heading whose title is longer than forty characters';
+const LONG_FILE = 'Editing-long-e2e.md';
+const LONG_NOTE = ['# Longa', '', ...Array.from({ length: 20 }, (_, i) => [`## Seção ${i + 1}`, ...Array.from({ length: 8 }, (_, j) => `linha ${j + 1} da seção ${i + 1}`), ''].join('\n'))].join('\n');
 const NOTE = ['# Editing', '', '## Comments', '', '- Ask about the comment box', '', `## ${LONG}`, '', '## Story', '',
   'First line of the paragraph,', 'second line of the paragraph.', '', '|a|b|', '|---|---|', '', 'Third line after the table.', '',
   '## Picture', '', 'A paragraph with a picture.', `![[${IMAGE}]]`, ''].join('\n');
@@ -236,5 +239,38 @@ async function box(page, text) {
     await app.vault.delete(app.vault.getAbstractFileByPath(file));
     await app.vault.delete(app.vault.getAbstractFileByPath(image));
   }, FILE, IMAGE);
+
+  // 9. a long note: a double-clicked paragraph, on either side of the root, is edited under the pointer and stays
+  // edited; typing goes into it and Escape writes it
+  await page.evaluate(async ({ file, content }) => {
+    const existing = app.vault.getAbstractFileByPath(file);
+    if (existing) await app.vault.modify(existing, content); else await app.vault.create(file, content);
+  }, { file: LONG_FILE, content: LONG_NOTE });
+  await openEditor(page, LONG_FILE);
+  for (const section of [8, 9]) {
+    await page.evaluate(() => app.workspace.getLeavesOfType('mdmap')[0].view.editor.fit());
+    await sleep(700);
+    const box = () => page.evaluate(section => {
+      const el = Array.from(document.querySelectorAll('.mdmap-paragraph-node')).find(e => (e.querySelector('.mdmap-editable, .mdmap-text')?.textContent ?? '').startsWith(`linha 1 da seção ${section}\n`));
+      const r = el.getBoundingClientRect();
+      return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    }, section);
+    const before = await box();
+    await dblClick(page, before);
+    await sleep(1000);
+    const after = await box();
+    const editing = await page.evaluate(() => { const el = document.querySelector('.mdmap-editable'); return !!el && document.activeElement === el; });
+    console.log(`long note, paragraph of Seção ${section}: still edited after 1 s: ${editing} | under the pointer: ${after.left <= before.x && before.x <= after.right && after.top <= before.y && before.y <= after.bottom}`);
+    await caretAtEndOfLine(page, 0);
+    await page.keyboard.type(' editada', { delay: 10 });
+    await page.keyboard.press('Escape');
+    await sleep(800);
+    console.log(`  Escape wrote it: ${(await md(page, LONG_FILE)).includes(`linha 1 da seção ${section} editada\n`)}`);
+  }
+  console.log(await shot(page, 'editing-05-long-note'));
+  await page.evaluate(async file => {
+    app.workspace.getLeavesOfType('mdmap').filter(l => l.view.getState().file === file).forEach(l => l.detach());
+    await app.vault.delete(app.vault.getAbstractFileByPath(file));
+  }, LONG_FILE);
   ctx.browser.disconnect();
 })().catch(e => { console.error('ERR', e); process.exit(1); });

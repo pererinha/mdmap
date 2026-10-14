@@ -141,6 +141,28 @@ function extent(of: Box[]): number {
     return of.length === 0 ? 0 : Math.max(...of.map(b => b.y + b.height)) - Math.min(...of.map(b => b.y));
 }
 
+describe('tree-layout while a paragraph is edited', () => {
+    // Sections of eight lines: a paragraph shows six, and its whole text while it is edited.
+    const sections = Array.from({ length: 20 }, (_, i) => [`## Seção ${i + 1}`, ...Array.from({ length: 8 }, (_, j) => `linha ${j + 1} da seção ${i + 1}`), ''].join('\n'));
+    const longa = mapRoot(parseMarkdown(['# Longa', '', ...sections].join('\n')), 'Longa');
+
+    for (const layout of ['center', 'right'] as Layout[]) {
+        it(`${layout}: editing any paragraph leaves every top-level branch on its side`, () => {
+            const side = (root: PlainNode) => {
+                const nodes = layoutTree(root, layout).nodes;
+                return root.children.map(child => nodes.find(node => node.id === child.id)!.data.side);
+            };
+            const resting = side(longa);
+            const edited = longa.children.map(section => {
+                const paragraph = section.children[0];
+                const root = { ...longa, children: longa.children.map(s => (s === section ? { ...s, children: [{ ...paragraph, editing: true }] } : s)) };
+                return JSON.stringify(side(root)) === JSON.stringify(resting) ? null : section.title;
+            });
+            expect(edited.filter(Boolean)).to.deep.equal([]);
+        });
+    }
+});
+
 describe('tree-layout on real notes', () => {
     const story = mapRoot(parseMarkdown(readFileSync(join(__dirname, '../e2e/fixtures/story.md'), 'utf8'), undefined, { listItems: true }), 'story');
     const canal = mapRoot(parseMarkdown(CANAL), 'Canal');
