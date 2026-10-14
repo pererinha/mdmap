@@ -40,13 +40,11 @@ export default class MdmapPlugin extends Plugin {
         this.registerEditorExtension(revealField);
         this.registerEditorExtension(followCursor((file, line, text) => this.focusHeading(file, line, text)));
         this.registerEditorExtension(
-            watchFolds((file, lines) => {
-                for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
-                    if (leaf.view instanceof EditorView && leaf.view.getState().file === file.path) {
-                        leaf.view.applyNoteFolds(lines);
-                    }
-                }
-            }),
+            watchFolds((file, lines) =>
+                this.maps()
+                    .filter(view => view.getState().file === file.path)
+                    .forEach(view => view.applyNoteFolds(lines)),
+            ),
         );
         this.addCommand({
             id: 'edit-mind-map',

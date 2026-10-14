@@ -63,6 +63,12 @@ const positionLabel = (at: number) =>
     `${t('branchColor')} ${(at % PALETTE_SIZE) + 1}${at < PALETTE_SIZE ? '' : ` · ${t('level')} ${Math.floor(at / PALETTE_SIZE) + 1}`}`;
 const slotLabel = (theme: Theme, slot: Slot) =>
     `${themeLabel(theme)} · ${slot === 'root' ? t('centerColor') : slot === 'rootText' ? t('centerText') : positionLabel(slot)}`;
+/** A ref that puts the Lucide icon `name` in its element once. */
+export const iconRef = (name: string) => (el: HTMLElement | null) => {
+    if (el && !el.firstChild) {
+        setIcon(el, name);
+    }
+};
 const swatchStyle = (color: string) => ({ '--mdmap-swatch': color }) as CSSProperties;
 
 /** Whether any colour is picked, in either theme. */
@@ -254,11 +260,7 @@ export function SettingsPanel({ settings, actions, open, onOpenChange }: Setting
                 className="mdmap-settings-button"
                 aria-label={t('viewSettings')}
                 aria-expanded={open}
-                ref={el => {
-                    if (el && !el.firstChild) {
-                        setIcon(el, 'settings');
-                    }
-                }}
+                ref={iconRef('settings')}
                 onClick={() => onOpenChange(!open)}
             />
             {open && (

@@ -30,12 +30,11 @@ import {
     useReactFlow,
 } from '@xyflow/react';
 import type { Edge, Node, NodeProps, OnConnectEnd, OnNodeDrag, OnSelectionChangeFunc, ReactFlowInstance } from '@xyflow/react';
-import { setIcon } from 'obsidian';
 import { PlainNode, XY } from './md-tree';
 import { Facing, Layout, MdNodeData, NODE_TYPE, layoutTree } from './tree-layout';
 import { t } from './i18n';
 import { MdmapSettings } from './settings';
-import { SettingsActions, SettingsPanel } from './settings-panel';
+import { SettingsActions, SettingsPanel, iconRef } from './settings-panel';
 import { addChild, addSiblingAfter, ancestorIds, countDescendants, findNode, isDescendant, moveInto, moveSibling, remove, searchNodes, setText } from './tree-ops';
 
 export interface ResolvedMedia {
@@ -260,11 +259,7 @@ function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
             <button
                 className="mdmap-copy nodrag"
                 aria-label={t('copyAsMarkdown')}
-                ref={el => {
-                    if (el && !el.firstChild) {
-                        setIcon(el, 'copy');
-                    }
-                }}
+                ref={iconRef('copy')}
                 onClick={e => {
                     e.stopPropagation();
                     data.onCopy!(id);
@@ -338,15 +333,9 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
         (root: PlainNode): { nodes: EditorNode[]; edges: Edge[] } => {
             const laid = layoutTree(root, layoutRef.current, positionsRef.current, collapsed.current);
             // The laid-out tree lacks the children of collapsed nodes; their fold buttons count them in the whole tree.
-            const whole = new Map<string, PlainNode>();
-            const index = (node: PlainNode): void => {
-                whole.set(node.id, node);
-                node.children.forEach(index);
-            };
-            index(root);
             return {
                 nodes: laid.nodes.map(node => {
-                    const full = whole.get(node.id);
+                    const full = findNode(root, node.id);
                     const folded = collapsed.current.has(node.id);
                     return {
                         ...node,
@@ -827,11 +816,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                             >
                                 <span
                                     className="mdmap-organize-icon"
-                                    ref={el => {
-                                        if (el && !el.firstChild) {
-                                            setIcon(el, item.icon);
-                                        }
-                                    }}
+                                    ref={iconRef(item.icon)}
                                 />
                                 <span className="mdmap-organize-label">{item.label}</span>
                             </button>
