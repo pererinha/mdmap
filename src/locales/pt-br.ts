@@ -15,6 +15,7 @@ export const ptBR: Strings = {
     centerColor: 'centro',
     centerText: 'texto do centro',
     branchColor: 'ramo',
+    level: 'nível',
     hexColor: 'Cor em hex',
     showClickedNodeDesc: 'Clicar num nó rola a nota até ele e destaca a linha dele.',
     showParagraphsDesc: 'Os parágrafos sob um título viram nós; desligado, o texto fica no título. Precisa de itens de lista e parágrafos como nós.',

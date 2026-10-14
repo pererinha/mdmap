@@ -3,10 +3,10 @@
  * the two view toggles and the colours. The plugin's settings tab opens the
  * same colour editor in a modal. A tab for the light and one for the dark
  * theme each show the centre and the six palette colours; the centre opens a
- * bar under them with its text colour, a palette colour one with its lighter
- * shades, which the top-level branches past the sixth take, one round of the
- * palette each. A position with no colour picked shows the palette's colour
- * for it. A click on a swatch selects it and the row at the bottom shows it;
+ * bar under them with its text colour, a palette colour one with its shades,
+ * which colour the nodes under its top-level branches, one level each, the
+ * last for every level below. A position with no colour picked shows the
+ * palette's colour for it. A click on a swatch selects it and the row at the bottom shows it;
  * with Edit on, that row changes it with the colour picker or by typing its
  * hex. "Use theme colours" drops every picked colour.
  */
@@ -25,7 +25,7 @@ export interface SettingsActions {
 }
 
 type Theme = keyof NodeColors;
-/** The centre, its text, or a top-level branch position. */
+/** The centre, its text, or a position in `ThemeColors.branches`: a palette colour or a shade of one. */
 type Slot = 'root' | 'rootText' | number;
 
 const THEMES: Array<{ theme: Theme; label: string }> = [
@@ -59,8 +59,10 @@ function withColor(colors: ThemeColors, slot: Slot, color: string): ThemeColors 
 }
 
 const themeLabel = (theme: Theme) => THEMES.find(item => item.theme === theme)!.label;
+const positionLabel = (at: number) =>
+    `${t('branchColor')} ${(at % PALETTE_SIZE) + 1}${at < PALETTE_SIZE ? '' : ` · ${t('level')} ${Math.floor(at / PALETTE_SIZE) + 1}`}`;
 const slotLabel = (theme: Theme, slot: Slot) =>
-    `${themeLabel(theme)} · ${slot === 'root' ? t('centerColor') : slot === 'rootText' ? t('centerText') : `${t('branchColor')} ${slot + 1}`}`;
+    `${themeLabel(theme)} · ${slot === 'root' ? t('centerColor') : slot === 'rootText' ? t('centerText') : positionLabel(slot)}`;
 const swatchStyle = (color: string) => ({ '--mdmap-swatch': color }) as CSSProperties;
 
 /** Whether any colour is picked, in either theme. */

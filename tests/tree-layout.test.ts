@@ -2,7 +2,7 @@ import { expect } from 'chai';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { PlainNode, XY, mapRoot, parseMarkdown } from '../src/md-tree';
-import { GAP_Y, Layout, MdFlowNode, branchColor, layoutTree } from '../src/tree-layout';
+import { GAP_Y, Layout, MdFlowNode, branchColor, layoutTree, nodeColor } from '../src/tree-layout';
 import { countDescendants } from '../src/tree-ops';
 
 const CANAL = [
@@ -248,21 +248,34 @@ describe('tree-layout on real notes', () => {
 });
 
 describe('branch colours', () => {
-    it('the first six positions take the palette; later ones a picked colour, else the palette lighter each round', () => {
+    it('the first six top-level branches take the palette; later ones the palette lighter each round', () => {
         expect(branchColor(0)).to.equal('var(--mdmap-color-1)');
         expect(branchColor(5)).to.equal('var(--mdmap-color-6)');
-        expect(branchColor(6)).to.equal('var(--mdmap-pick-7, color-mix(in srgb, var(--mdmap-color-1) 75%, white))');
-        expect(branchColor(13)).to.equal('var(--mdmap-pick-14, color-mix(in srgb, var(--mdmap-color-2) 50%, white))');
-        expect(branchColor(24)).to.equal('var(--mdmap-pick-25, var(--mdmap-color-1))');
+        expect(branchColor(6)).to.equal('color-mix(in srgb, var(--mdmap-color-1) 75%, white)');
+        expect(branchColor(13)).to.equal('color-mix(in srgb, var(--mdmap-color-2) 50%, white)');
+        expect(branchColor(24)).to.equal('var(--mdmap-color-1)');
     });
 
-    it('every layout gives each top-level branch its own position colour, and its subtree the same', () => {
-        const root = mapRoot(parseMarkdown(['# Root', ...Array.from({ length: 8 }, (_, i) => `## B${i + 1}\n### leaf ${i + 1}`)].join('\n')), 'Root');
+    it("the nodes under a branch take its palette colour's shades, one level each and the last for every level below", () => {
+        expect(nodeColor(0, 1)).to.equal(branchColor(0));
+        expect(nodeColor(6, 1)).to.equal(branchColor(6));
+        expect(nodeColor(0, 2)).to.equal('var(--mdmap-pick-7, color-mix(in srgb, var(--mdmap-color-1) 75%, white))');
+        expect(nodeColor(1, 3)).to.equal('var(--mdmap-pick-14, color-mix(in srgb, var(--mdmap-color-2) 50%, white))');
+        expect(nodeColor(0, 4)).to.equal('var(--mdmap-pick-19, color-mix(in srgb, var(--mdmap-color-1) 25%, white))');
+        expect(nodeColor(0, 6)).to.equal(nodeColor(0, 4));
+        expect(nodeColor(6, 2)).to.equal(nodeColor(0, 2));
+    });
+
+    it('every layout colours each node by its top-level branch and its depth', () => {
+        const root = mapRoot(parseMarkdown(['# Root', ...Array.from({ length: 8 }, (_, i) => `## B${i + 1}\n### leaf ${i + 1}\n#### twig ${i + 1}`)].join('\n')), 'Root');
         for (const layout of ['center', 'right', 'radial'] as Layout[]) {
             const colorOf = (title: string) => layoutTree(root, layout).nodes.find(node => node.data.title === title)!.data.color;
-            expect(colorOf('B7'), layout).to.equal(branchColor(6));
-            expect(colorOf('leaf 7'), layout).to.equal(branchColor(6));
-            expect(colorOf('B8'), layout).to.equal(branchColor(7));
+            expect(colorOf('B2'), layout).to.equal(nodeColor(1, 1));
+            expect(colorOf('leaf 2'), layout).to.equal(nodeColor(1, 2));
+            expect(colorOf('twig 2'), layout).to.equal(nodeColor(1, 3));
+            expect(colorOf('B7'), layout).to.equal(nodeColor(6, 1));
+            expect(colorOf('leaf 7'), layout).to.equal(nodeColor(6, 2));
+            expect(colorOf('B8'), layout).to.equal(nodeColor(7, 1));
         }
     });
 });

@@ -10,8 +10,8 @@
 /* Map editor */
 /*
  * The centre (the root and anything without a branch) and the palette: the colours picked for the current theme,
- * which the view sets as --mdmap-center and --mdmap-pick-1…, or else the theme's own. Branches past the sixth are
- * coloured from these in src/tree-layout.ts.
+ * which the view sets as --mdmap-center and --mdmap-pick-1…, or else the theme's own. Branches past the sixth and
+ * the nodes under each branch are coloured from these in src/tree-layout.ts.
  */
 .mdmap-root {
     width: 100%;

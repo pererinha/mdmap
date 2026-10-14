@@ -14,6 +14,7 @@ export const en = {
     centerColor: 'center',
     centerText: 'center text',
     branchColor: 'branch',
+    level: 'level',
     hexColor: 'Hex color',
     showClickedNodeDesc: 'Clicking a node scrolls the note to it and highlights its line.',
     showParagraphsDesc: 'Paragraphs under a heading are nodes; off, their text stays in the heading. Needs list items and paragraphs as nodes.',

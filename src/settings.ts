@@ -14,8 +14,9 @@ export interface MdmapSettings {
 }
 
 /**
- * The colours picked for one theme, as `#rrggbb`: the centre and its text, and the top-level branches by position. A position
- * with no colour, empty or past the end, takes the palette's colour for it (`branchColor` in `src/tree-layout.ts`).
+ * The colours picked for one theme, as `#rrggbb`: the centre and its text, and by position the palette colours, then their
+ * shades for the nodes under a top-level branch, one round of the palette per level (`nodeColor` in `src/tree-layout.ts`).
+ * A position with no colour, empty or past the end, takes the palette's colour for it.
  */
 export interface ThemeColors {
     root: string;
@@ -32,10 +33,13 @@ export interface NodeColors {
 /** The palette: the theme's six colours, or the ones picked for the first six positions. */
 export const PALETTE_SIZE = 6;
 
-/** Rounds of the palette before it starts over: its colours, then 25%, 50% and 75% closer to white. */
+/**
+ * Rounds of the palette before it starts over: its colours, then 25%, 50% and 75% closer to white. The top-level branches
+ * past the sixth take them in turn; the nodes under a branch take its palette colour's shades, one round per level.
+ */
 export const ROUNDS = 4;
 
-/** How much white, in percent, the palette colour of the top-level branch at `index` is mixed with. */
+/** How much white, in percent, the palette colour at position `index` is mixed with: a top-level branch's or a shade's. */
 export function whiteShare(index: number): number {
     return (Math.floor(index / PALETTE_SIZE) % ROUNDS) * 25;
 }

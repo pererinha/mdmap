@@ -45,7 +45,7 @@ node e2e/folds.js      # folding a heading or list item in the note collapses it
 node e2e/focus.js      # the cursor on a heading in the note selects and centers its node; the keyboard stays in the note
 node e2e/search.js     # Cmd/Ctrl+F, highlighted matches, Enter / Shift+Enter center them, Escape; Cmd/Ctrl+F in the note is Obsidian's
 node e2e/editing.js    # editing in place: same look, caret where clicked, the box grows, Enter / Escape, long titles, a paragraph edited whole
-node e2e/colors.js     # the gear's colours on a note with 13 top-level branches: a tab per theme with the centre and the palette; the centre opens a bar with its text colour, a palette colour one with its lighter shades, which branches past the sixth take, a new branch too; Edit; hex typed or picked reaches the open map in its theme only; kept on reload; "Use theme colors"; Escape and a canvas click close; the colours saved before are put back
+node e2e/colors.js     # the gear's colours on a note with 13 top-level branches: a tab per theme with the centre and the palette; the centre opens a bar with its text colour, branches past the sixth lighter each round, a new branch too; a palette colour opens a bar with its shades, which colour the nodes under its branches by level; Edit; hex typed or picked reaches the open map in its theme only; kept on reload; "Use theme colors"; Escape and a canvas click close; the colours saved before are put back
 ```
 
 The scenarios create, rewrite and delete notes, so they stop unless the

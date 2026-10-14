@@ -20,7 +20,7 @@ import type { Edge, Node } from '@xyflow/react';
 // Declares Obsidian's global createEl for the unit tests, which compile this file on its own; nothing is imported at runtime.
 import type {} from 'obsidian';
 import { NodeKind, PlainNode, XY } from './md-tree';
-import { PALETTE_SIZE, whiteShare } from './settings';
+import { PALETTE_SIZE, ROUNDS, whiteShare } from './settings';
 import { withoutCollapsed } from './tree-ops';
 
 export const NODE_TYPE = 'md';
@@ -28,17 +28,26 @@ export const NODE_TYPE = 'md';
 export type Layout = 'center' | 'right' | 'radial';
 export type Side = 'left' | 'right';
 
-/**
- * The colour of the top-level branch at `index`, inherited by its subtree: the one picked for that position, or
- * else the palette's colour for it (`src/styles.css`), lighter on each round of the palette past the first.
- */
+/** The palette colour of the top-level branch at `index`: the one picked for it, or else the theme's (`src/styles.css`). */
+const paletteColor = (index: number) => `var(--mdmap-color-${(index % PALETTE_SIZE) + 1})`;
+
+/** The colour of the top-level branch at `index`: its palette colour, lighter on each round of the palette past the first. */
 export function branchColor(index: number): string {
-    const palette = `var(--mdmap-color-${(index % PALETTE_SIZE) + 1})`;
-    if (index < PALETTE_SIZE) {
-        return palette;
-    }
     const white = whiteShare(index);
-    return `var(--mdmap-pick-${index + 1}, ${white ? `color-mix(in srgb, ${palette} ${100 - white}%, white)` : palette})`;
+    return white ? `color-mix(in srgb, ${paletteColor(index)} ${100 - white}%, white)` : paletteColor(index);
+}
+
+/**
+ * The colour of a node at `depth` under the top-level branch at `index`: the branch's own on the branch, and under it
+ * a shade of its palette colour, one level per shade, the last for every level below: the shade picked at position
+ * `index % PALETTE_SIZE + level * PALETTE_SIZE`, or else the palette colour 25 % closer to white per level.
+ */
+export function nodeColor(index: number, depth: number): string {
+    if (depth <= 1) {
+        return branchColor(index);
+    }
+    const shade = (index % PALETTE_SIZE) + Math.min(depth - 1, ROUNDS - 1) * PALETTE_SIZE;
+    return `var(--mdmap-pick-${shade + 1}, color-mix(in srgb, ${paletteColor(index)} ${100 - whiteShare(shade)}%, white))`;
 }
 
 export const LABEL_MAX = 40;
@@ -60,7 +69,7 @@ export interface MdNodeData extends Record<string, unknown> {
     depth: number;
     /** Which side of the root the node sits on; the root has no side. */
     side?: Side;
-    /** Colour of the top-level branch this node belongs to; undefined on the root. */
+    /** The node's colour, from the top-level branch it belongs to and its depth (`nodeColor`); undefined on the root. */
     color?: string;
 }
 
@@ -144,7 +153,8 @@ export function estimateSize(title: string, depth: number, preview?: string, med
 
 interface Branch {
     node: PlainNode;
-    color: string;
+    /** Position among the root's children, which picks the colours of the branch. */
+    index: number;
 }
 
 /** A side of a node box; every node has a source handle `out-<side>` and a target handle `in-<side>` on each. */
@@ -196,7 +206,8 @@ function layoutSide(root: PlainNode, branches: Branch[], side: Side, heights: Ma
     const fanSpread: number[] = [];
 
     /** Places the subtree in the block that starts at `top` and returns the node's centre y. */
-    const place = (node: PlainNode, depth: number, color: string, parent: PlainNode, top: number): number => {
+    const place = (node: PlainNode, depth: number, branch: number, parent: PlainNode, top: number): number => {
+        const color = nodeColor(branch, depth);
         const size = estimateSize(node.title, depth, node.preview, node.media, node.text, node.editing);
         const block = heights.get(node.id)!;
         let centerY = top + block / 2;
@@ -204,7 +215,7 @@ function layoutSide(root: PlainNode, branches: Branch[], side: Side, heights: Ma
             const stacked = node.children.reduce((sum, child, index) => sum + heights.get(child.id)! + (index > 0 ? GAP_Y : 0), 0);
             let y = top + (block - stacked) / 2;
             const centers = node.children.map(child => {
-                const center = place(child, depth + 1, color, node, y);
+                const center = place(child, depth + 1, branch, node, y);
                 y += heights.get(child.id)! + GAP_Y;
                 return center;
             });
@@ -218,7 +229,7 @@ function layoutSide(root: PlainNode, branches: Branch[], side: Side, heights: Ma
     };
     let top = 0;
     for (const branch of branches) {
-        place(branch.node, 1, branch.color, root, top);
+        place(branch.node, 1, branch.index, root, top);
         top += heights.get(branch.node.id)! + GAP_Y;
     }
 
@@ -310,7 +321,7 @@ export function balanceSides(branches: Branch[], heights: Map<string, number>): 
 
 /** `whole` is `root` with the children of collapsed nodes, which the sides are balanced on. */
 function layoutTidy(root: PlainNode, layout: 'center' | 'right', whole: PlainNode): { nodes: MdFlowNode[]; edges: Edge[] } {
-    const branches: Branch[] = root.children.map((node, index) => ({ node, color: branchColor(index) }));
+    const branches: Branch[] = root.children.map((node, index) => ({ node, index }));
     const heights = new Map<string, number>();
     branches.forEach(branch => blockHeights(branch.node, 1, heights));
     // Balanced on the whole tree with every box at its resting size, so neither collapsing a branch nor editing a
@@ -359,12 +370,14 @@ const RADIAL_GAP = 16;
 function layoutRadial(root: PlainNode): { nodes: MdFlowNode[]; edges: Edge[] } {
     interface Item { node: PlainNode; depth: number; color: string; parent?: PlainNode; size: { width: number; height: number }; angle: number }
     const items = new Map<string, Item>();
-    const collect = (node: PlainNode, depth: number, color: string, parent?: PlainNode) => {
+    /** `branch` is the position of the top-level branch the node belongs to. */
+    const collect = (node: PlainNode, depth: number, branch: number, parent?: PlainNode) => {
+        const color = depth === 0 ? '' : nodeColor(branch, depth);
         const item: Item = { node, depth, color, parent, size: estimateSize(node.title, depth, node.preview, node.media, node.text, node.editing), angle: 0 };
         items.set(node.id, item);
-        node.children.forEach((child, index) => collect(child, depth + 1, depth === 0 ? branchColor(index) : color, node));
+        node.children.forEach((child, index) => collect(child, depth + 1, depth === 0 ? index : branch, node));
     };
-    collect(root, 0, '');
+    collect(root, 0, 0);
 
     // Each subtree gets a sector of the circle as wide as it needs: its own box, or its
     // children's sectors put together, whichever is wider. A box needs angle in proportion
