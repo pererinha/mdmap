@@ -193,9 +193,12 @@ To run tests in a real Obsidian app, see [e2e/README.md](e2e/README.md).
 
 1. Set the new version in `manifest.json` and `package.json`, and describe
    the changes in [CHANGELOG.md](CHANGELOG.md).
-2. Push a tag with exactly that version and no `v` (`1.0.1`, not `v1.0.1`).
+2. Start the test Obsidian and the Android emulator, and run `e2e/all.sh`
+   (see [e2e/README.md](e2e/README.md)). Every scenario must exit with 0, and
+   the only false checks must be the two expected ones listed there.
+3. Push a tag with exactly that version and no `v` (`1.0.1`, not `v1.0.1`).
    Obsidian finds the release by this name.
-3. The [release workflow](.github/workflows/release.yml) runs the tests,
+4. The [release workflow](.github/workflows/release.yml) runs the tests,
    builds the plugin, and publishes `main.js`, `manifest.json` and
    `styles.css` in a GitHub release named after the tag.
 

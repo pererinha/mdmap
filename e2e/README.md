@@ -89,3 +89,19 @@ The script looks for `adb` in `$ANDROID_HOME/platform-tools` (default
 `~/Library/Android/sdk`). To change it, set `ADB`. To use another vault, set
 `MDMAP_ANDROID_VAULT`. To change the port on this computer that connects to
 Obsidian on the emulator (default 9444), set `MDMAP_ANDROID_PORT`.
+
+## Every test
+
+```sh
+e2e/all.sh
+```
+
+Start the test Obsidian (`e2e/setup.sh`) and the emulator first. The script
+runs `tsc`, the unit tests, every scenario above and `e2e/android.js`. It saves
+each scenario's output in `e2e/shots/<scenario>.log`, then prints each
+scenario's exit code and every check that came out false.
+
+Two false checks are expected:
+
+- `search.js` "3 ringed matches": a known failure, also present in 1.2.1.
+- `search.js` "editing a node: false": false is the correct result.
