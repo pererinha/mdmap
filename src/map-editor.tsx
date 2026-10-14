@@ -288,10 +288,11 @@ function easeInOutCubic(t: number): number {
     return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
-const ORGANIZERS: Array<{ layout: Layout; label: string }> = [
-    { layout: 'right', label: t('tidyTree') },
-    { layout: 'center', label: t('centerRoot') },
-    { layout: 'radial', label: t('radial') },
+/** The layout buttons, with a Lucide icon each; on a narrow map only the icons show (`src/styles.css`). */
+const ORGANIZERS: Array<{ layout: Layout; label: string; icon: string }> = [
+    { layout: 'right', label: t('tidyTree'), icon: 'list-tree' },
+    { layout: 'center', label: t('centerRoot'), icon: 'network' },
+    { layout: 'radial', label: t('radial'), icon: 'orbit' },
 ];
 
 function Editor({ root: initialRoot, positions: initialPositions, onChange, onReady, resolveMedia, onOpenMedia, onClickNode, onCopyNode, collapsed: initialCollapsed, onCollapse }: MapEditorProps) {
@@ -806,16 +807,27 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                     {query.trim() && <span className="mdmap-search-count">{`${at + 1}/${matches.length}`}</span>}
                 </Panel>
                 <Panel position="top-right" className="mdmap-panel">
-                    {ORGANIZERS.map(item => (
-                        <button
-                            key={item.layout}
-                            className="mdmap-organize"
-                            data-layout={item.layout}
-                            onClick={() => handleRef.current?.organize(item.layout)}
-                        >
-                            {item.label}
-                        </button>
-                    ))}
+                    <span className="mdmap-organizers">
+                        {ORGANIZERS.map(item => (
+                            <button
+                                key={item.layout}
+                                className="mdmap-organize"
+                                data-layout={item.layout}
+                                aria-label={item.label}
+                                onClick={() => handleRef.current?.organize(item.layout)}
+                            >
+                                <span
+                                    className="mdmap-organize-icon"
+                                    ref={el => {
+                                        if (el && !el.firstChild) {
+                                            setIcon(el, item.icon);
+                                        }
+                                    }}
+                                />
+                                <span className="mdmap-organize-label">{item.label}</span>
+                            </button>
+                        ))}
+                    </span>
                 </Panel>
             </ReactFlow>
         </div>

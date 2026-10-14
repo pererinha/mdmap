@@ -12,6 +12,8 @@
     width: 100%;
     height: 100%;
     outline: none;
+    /* The layout buttons drop their labels when the map is narrow. */
+    container-type: inline-size;
     --mdmap-branch: var(--interactive-accent);
 }
 .mdmap-node {
@@ -192,9 +194,47 @@
     display: flex;
     gap: 4px;
 }
-.mdmap-organize {
-    font-size: 12px;
-    padding: 2px 8px;
+/* The layout buttons as one group, each an icon and its name; two classes in each selector, to win over Obsidian's own button look. */
+.mdmap-organizers {
+    display: inline-flex;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-m);
+    background: var(--background-primary);
+    box-shadow: var(--shadow-s);
+}
+.mdmap-organizers .mdmap-organize {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 26px;
+    padding: 0 10px;
+    border-radius: var(--radius-s);
+    font-size: var(--font-ui-smaller);
+    color: var(--text-muted);
+    background: transparent;
+    box-shadow: none;
+}
+.mdmap-organizers .mdmap-organize:hover {
+    color: var(--text-normal);
+    background: var(--background-modifier-hover);
+}
+.mdmap-organize-icon {
+    display: flex;
+}
+.mdmap-organize-icon svg {
+    width: 14px;
+    height: 14px;
+}
+/* On a narrow map, a phone's, the layout buttons show only their icons; the name stays in their aria-label. */
+@container (max-width: 520px) {
+    .mdmap-organize-label {
+        display: none;
+    }
+    .mdmap-organizers .mdmap-organize {
+        padding: 0 8px;
+    }
 }
 /* Search field at the top-left of the map, followed by "current/matches". */
 .mdmap-search {
