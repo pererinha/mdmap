@@ -1,6 +1,7 @@
 import { ItemView, MarkdownView, Menu, Notice, Scope, TFile, ViewStateResult, WorkspaceLeaf } from 'obsidian';
 import { createRoot, Root } from 'react-dom/client';
 import { EditorSync, whenSized } from './editor-sync';
+import { FoldedLine, noteFolds, setNoteFolds } from './fold-sync';
 import { ParseOptions, PlainNode, XY, idsToPaths, pathsToIds } from './md-tree';
 import { MapEditor, MapEditorHandle, ResolvedMedia } from './map-editor';
 import { clearReveal, revealLine } from './reveal';
@@ -15,6 +16,8 @@ export default class EditorView extends ItemView {
     private host: HTMLDivElement;
     private reactRoot: Root;
     private editor: MapEditorHandle;
+    /** The nodes whose children the map hides, as it last reported them. */
+    private collapsed: string[] = [];
 
     constructor(
         leaf: WorkspaceLeaf,
@@ -127,6 +130,10 @@ export default class EditorView extends ItemView {
         this.sync?.unwatch();
         this.sync = new EditorSync(this.app, file, root => this.editor?.reload(root, this.sync.positions()), this.parseOptions());
         const root = await this.sync.load();
+        // The note's folds, if it is open, win over the collapsed nodes saved for it.
+        const saved = pathsToIds(root, this.settings.collapsed[this.filePath] ?? []);
+        const folds = noteFolds(this.filePath);
+        this.collapsed = folds ? this.withNoteFolds(saved, folds) : saved;
         // React Flow needs a sized container to fit the view on its first render.
         await whenSized(this.host);
 
@@ -142,7 +149,7 @@ export default class EditorView extends ItemView {
                 onOpenMedia={link => void this.app.workspace.openLinkText(link, this.filePath, true)}
                 onClickNode={id => this.reveal(id)}
                 onCopyNode={id => void this.copyNode(id)}
-                collapsed={pathsToIds(root, this.settings.collapsed[this.filePath] ?? [])}
+                collapsed={this.collapsed}
                 onCollapse={ids => void this.saveCollapsed(ids)}
             />,
         );
@@ -171,14 +178,54 @@ export default class EditorView extends ItemView {
         }
     }
 
-    /** Keeps the note's collapsed nodes in the plugin's data, by title path, for the next time the map opens. */
+    /** Nodes the note can fold, headings and list items with children other than the root, with their lines. */
+    private foldableNodes(): Array<{ id: string; line: FoldedLine }> {
+        const nodes: Array<{ id: string; line: FoldedLine }> = [];
+        const visit = (node: PlainNode) => {
+            for (const child of node.children) {
+                const line = child.kind !== 'paragraph' && child.children.length > 0 ? this.sync.lineWithText(child.id) : undefined;
+                if (line) {
+                    nodes.push({ id: child.id, line });
+                }
+                visit(child);
+            }
+        };
+        visit(this.sync.root());
+        return nodes;
+    }
+
+    /** `collapsed` with the nodes the note can fold collapsed exactly where the note has these folds. */
+    private withNoteFolds(collapsed: string[], folds: FoldedLine[]): string[] {
+        const folded = new Set(folds.map(fold => this.sync.nodeAt(fold.line, fold.text)));
+        const foldable = this.foldableNodes().map(node => node.id);
+        return [...collapsed.filter(id => !foldable.includes(id)), ...foldable.filter(id => folded.has(id))];
+    }
+
+    /** The note's folds changed in its editor: the map collapses the same nodes. */
+    applyNoteFolds(folds: FoldedLine[]) {
+        if (!this.sync || !this.editor) {
+            return;
+        }
+        const next = this.withNoteFolds(this.collapsed, folds);
+        if (next.length !== this.collapsed.length || next.some(id => !this.collapsed.includes(id))) {
+            this.editor.setCollapsed(next);
+        }
+    }
+
+    /**
+     * The map collapsed or expanded nodes: the note's open editors fold and unfold the same lines, and the plugin's
+     * data keeps them by title path for the next time the map opens.
+     */
     private async saveCollapsed(ids: string[]) {
+        this.collapsed = ids;
         const paths = idsToPaths(this.sync.root(), ids);
         if (paths.length > 0) {
             this.settings.collapsed[this.filePath] = paths;
         } else {
             delete this.settings.collapsed[this.filePath];
         }
+        // Last: the note's editors report their folds back through applyNoteFolds, which can change the nodes again.
+        setNoteFolds(this.filePath, this.foldableNodes().map(node => ({ ...node.line, folded: ids.includes(node.id) })));
         await this.saveSettings();
     }
 

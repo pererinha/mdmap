@@ -6,6 +6,7 @@ import { DEFAULT_SETTINGS, MdmapSettings } from './settings';
 import { MdmapSettingTab } from './settings-tab';
 import { revealField } from './reveal';
 import { followCursor } from './follow-cursor';
+import { watchFolds } from './fold-sync';
 import { t } from './i18n';
 
 export default class MdmapPlugin extends Plugin {
@@ -16,6 +17,15 @@ export default class MdmapPlugin extends Plugin {
         this.registerView(VIEW_TYPE, leaf => new EditorView(leaf, this.settings, () => this.saveSettings()));
         this.registerEditorExtension(revealField);
         this.registerEditorExtension(followCursor((file, line, text) => this.focusHeading(file, line, text)));
+        this.registerEditorExtension(
+            watchFolds((file, lines) => {
+                for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
+                    if (leaf.view instanceof EditorView && leaf.view.getState().file === file.path) {
+                        leaf.view.applyNoteFolds(lines);
+                    }
+                }
+            }),
+        );
         this.addCommand({
             id: 'edit-mind-map',
             name: t('editCommand'),

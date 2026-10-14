@@ -50,6 +50,24 @@ export class EditorSync {
         return nodeLines(this.tree).get(id);
     }
 
+    /** The node's line in the file, 0-based, with its text; undefined for a node with no line of its own. */
+    lineWithText(id: string): { line: number; text: string } | undefined {
+        const line = this.lineOf(id);
+        return line === undefined ? undefined : { line, text: this.lastWritten.split('\n')[line] };
+    }
+
+    /** The node written on that line of the file with exactly this text; a heading is also found when unsaved lines moved it. */
+    nodeAt(line: number, text: string): string | undefined {
+        if (this.lastWritten.split('\n')[line] === text) {
+            for (const [id, at] of nodeLines(this.tree)) {
+                if (at === line) {
+                    return id;
+                }
+            }
+        }
+        return headingAt(this.tree, line, text);
+    }
+
     /** The heading node on that line of the note, matched by the line's text. */
     headingAt(line: number, text: string): string | undefined {
         return headingAt(this.tree, line, text);

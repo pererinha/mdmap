@@ -51,6 +51,8 @@ export interface MapEditorHandle {
     focus(id: string): void;
     /** Puts the keyboard in the search field and selects its text. */
     focusSearch(): void;
+    /** Hides the children of exactly these nodes, as the note's folds ask; tells the view like any other change. */
+    setCollapsed(ids: string[]): void;
     /** The React Flow instance, for scripts that drive the view. */
     instance: ReactFlowInstance<EditorNode>;
 }
@@ -525,10 +527,14 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 searchRef.current?.focus();
                 searchRef.current?.select();
             },
+            setCollapsed(ids) {
+                changeCollapsed(new Set(ids));
+                render(rootRef.current);
+            },
             instance: flow,
         };
         onReady(handleRef.current);
-    }, [onReady, render, build, glide, setEdges, flow, onChange, expandAbove]);
+    }, [onReady, render, build, glide, setEdges, flow, onChange, expandAbove, changeCollapsed]);
 
     // A node focus() had to expand the map for is centered once React Flow has measured it.
     useEffect(() => {

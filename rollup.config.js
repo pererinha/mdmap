@@ -28,7 +28,7 @@ export default {
     banner: '/* mdmap. Bundled third-party code and its licenses: THIRD_PARTY_LICENSES.md in the repository. */',
   },
   // Obsidian provides CodeMirror at runtime; the plugin must use its copy so editor extensions share the editor's state.
-  external: ['obsidian', '@codemirror/state', '@codemirror/view'],
+  external: ['obsidian', '@codemirror/language', '@codemirror/state', '@codemirror/view'],
   plugins: [
     stylesheet(),
     // React and React Flow read process.env.NODE_ENV; Obsidian has no process.env.
