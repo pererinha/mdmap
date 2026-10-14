@@ -2,7 +2,7 @@ import { expect } from 'chai';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { PlainNode, XY, mapRoot, parseMarkdown } from '../src/md-tree';
-import { GAP_Y, Layout, MdFlowNode, layoutTree } from '../src/tree-layout';
+import { GAP_Y, Layout, MdFlowNode, branchColor, layoutTree } from '../src/tree-layout';
 import { countDescendants } from '../src/tree-ops';
 
 const CANAL = [
@@ -245,4 +245,24 @@ describe('tree-layout on real notes', () => {
             }
         });
     }
+});
+
+describe('branch colours', () => {
+    it('the first six positions take the palette; later ones a picked colour, else the palette lighter each round', () => {
+        expect(branchColor(0)).to.equal('var(--mdmap-color-1)');
+        expect(branchColor(5)).to.equal('var(--mdmap-color-6)');
+        expect(branchColor(6)).to.equal('var(--mdmap-pick-7, color-mix(in srgb, var(--mdmap-color-1) 75%, white))');
+        expect(branchColor(13)).to.equal('var(--mdmap-pick-14, color-mix(in srgb, var(--mdmap-color-2) 50%, white))');
+        expect(branchColor(24)).to.equal('var(--mdmap-pick-25, var(--mdmap-color-1))');
+    });
+
+    it('every layout gives each top-level branch its own position colour, and its subtree the same', () => {
+        const root = mapRoot(parseMarkdown(['# Root', ...Array.from({ length: 8 }, (_, i) => `## B${i + 1}\n### leaf ${i + 1}`)].join('\n')), 'Root');
+        for (const layout of ['center', 'right', 'radial'] as Layout[]) {
+            const colorOf = (title: string) => layoutTree(root, layout).nodes.find(node => node.data.title === title)!.data.color;
+            expect(colorOf('B7'), layout).to.equal(branchColor(6));
+            expect(colorOf('leaf 7'), layout).to.equal(branchColor(6));
+            expect(colorOf('B8'), layout).to.equal(branchColor(7));
+        }
+    });
 });

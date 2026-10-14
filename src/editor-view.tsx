@@ -5,7 +5,7 @@ import { FoldedLine, noteFolds, setNoteFolds } from './fold-sync';
 import { ParseOptions, PlainNode, XY, idsToPaths, pathsToIds } from './md-tree';
 import { MapEditor, MapEditorHandle, ResolvedMedia } from './map-editor';
 import { clearReveal, revealLine } from './reveal';
-import { MdmapSettings } from './settings';
+import { MdmapSettings, colorProps } from './settings';
 import { t } from './i18n';
 
 export const VIEW_TYPE = 'mdmap';
@@ -54,8 +54,11 @@ export default class EditorView extends ItemView {
     async onOpen() {
         this.contentEl.empty();
         this.contentEl.addClass('mdmap-content');
+        this.applyColors();
         this.host = this.contentEl.createDiv({ cls: 'mdmap-host' });
         this.registerEvent(this.app.workspace.on('resize', () => this.editor?.fit()));
+        // Switching between the light and the dark theme changes the CSS, and the map takes that theme's picked colours.
+        this.registerEvent(this.app.workspace.on('css-change', () => this.applyColors()));
         this.addAction('settings', t('viewSettings'), evt => this.showSettings(evt));
         // Cmd/Ctrl+F while the map has focus goes to its search field instead of Obsidian's file search.
         this.scope = new Scope(this.app.scope);
@@ -97,6 +100,23 @@ export default class EditorView extends ItemView {
                     }),
             )
             .showAtMouseEvent(evt);
+    }
+
+    /**
+     * The colours picked for the current theme, as the variables the map's palette reads (`src/styles.css`). On the
+     * view, so a popout window gets them too.
+     */
+    applyColors() {
+        // The theme is the app's: the main window's body has the new one when css-change fires, a popout's not yet.
+        const theme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
+        const props = colorProps(this.settings.colors, theme);
+        // A position picked before and not now, or only in the other theme, loses its variable.
+        for (const name of Array.from(this.contentEl.style)) {
+            if (name.startsWith('--mdmap-') && !(name in props)) {
+                props[name] = '';
+            }
+        }
+        this.contentEl.setCssProps(props);
     }
 
     /** Scrolls the note open next to the map to the node's line and highlights it; null clears the highlight. */

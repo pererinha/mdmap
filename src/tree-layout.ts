@@ -20,6 +20,7 @@ import type { Edge, Node } from '@xyflow/react';
 // Declares Obsidian's global createEl for the unit tests, which compile this file on its own; nothing is imported at runtime.
 import type {} from 'obsidian';
 import { NodeKind, PlainNode, XY } from './md-tree';
+import { PALETTE_SIZE, whiteShare } from './settings';
 import { withoutCollapsed } from './tree-ops';
 
 export const NODE_TYPE = 'md';
@@ -27,15 +28,18 @@ export const NODE_TYPE = 'md';
 export type Layout = 'center' | 'right' | 'radial';
 export type Side = 'left' | 'right';
 
-/** One colour per top-level branch, inherited by the subtree. Obsidian defines these for both themes. */
-export const BRANCH_COLORS = [
-    'var(--color-green)',
-    'var(--color-orange)',
-    'var(--color-yellow)',
-    'var(--color-purple)',
-    'var(--color-blue)',
-    'var(--color-red)',
-];
+/**
+ * The colour of the top-level branch at `index`, inherited by its subtree: the one picked for that position, or
+ * else the palette's colour for it (`src/styles.css`), lighter on each round of the palette past the first.
+ */
+export function branchColor(index: number): string {
+    const palette = `var(--mdmap-color-${(index % PALETTE_SIZE) + 1})`;
+    if (index < PALETTE_SIZE) {
+        return palette;
+    }
+    const white = whiteShare(index);
+    return `var(--mdmap-pick-${index + 1}, ${white ? `color-mix(in srgb, ${palette} ${100 - white}%, white)` : palette})`;
+}
 
 export const LABEL_MAX = 40;
 
@@ -306,7 +310,7 @@ export function balanceSides(branches: Branch[], heights: Map<string, number>): 
 
 /** `whole` is `root` with the children of collapsed nodes, which the sides are balanced on. */
 function layoutTidy(root: PlainNode, layout: 'center' | 'right', whole: PlainNode): { nodes: MdFlowNode[]; edges: Edge[] } {
-    const branches: Branch[] = root.children.map((node, index) => ({ node, color: BRANCH_COLORS[index % BRANCH_COLORS.length] }));
+    const branches: Branch[] = root.children.map((node, index) => ({ node, color: branchColor(index) }));
     const heights = new Map<string, number>();
     branches.forEach(branch => blockHeights(branch.node, 1, heights));
     // Balanced on the whole tree with every box at its resting size, so neither collapsing a branch nor editing a
@@ -358,7 +362,7 @@ function layoutRadial(root: PlainNode): { nodes: MdFlowNode[]; edges: Edge[] } {
     const collect = (node: PlainNode, depth: number, color: string, parent?: PlainNode) => {
         const item: Item = { node, depth, color, parent, size: estimateSize(node.title, depth, node.preview, node.media, node.text, node.editing), angle: 0 };
         items.set(node.id, item);
-        node.children.forEach((child, index) => collect(child, depth + 1, depth === 0 ? BRANCH_COLORS[index % BRANCH_COLORS.length] : color, node));
+        node.children.forEach((child, index) => collect(child, depth + 1, depth === 0 ? branchColor(index) : color, node));
     };
     collect(root, 0, '');
 
