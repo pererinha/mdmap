@@ -623,7 +623,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
             const pane = container.getBoundingClientRect();
             if (box.top < pane.top || box.bottom > pane.bottom || box.left < pane.left || box.right > pane.right) {
                 const { x, y } = node.internals.positionAbsolute;
-                flow.setCenter(x + (node.measured?.width ?? 0) / 2, y + (node.measured?.height ?? 0) / 2, { zoom: flow.getZoom() });
+                void flow.setCenter(x + (node.measured?.width ?? 0) / 2, y + (node.measured?.height ?? 0) / 2, { zoom: flow.getZoom() });
             }
         });
         observer.observe(container);
