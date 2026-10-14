@@ -1,7 +1,7 @@
 {
   "id": "mdmap",
   "name": "mdmap",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "minAppVersion": "1.13.0",
   "description": "Edit notes as mind maps with two-way Markdown sync.",
   "author": "pererinha",
