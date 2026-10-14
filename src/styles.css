@@ -125,18 +125,22 @@
     opacity: 0;
     pointer-events: none;
 }
-/* The grip on the side the edge comes in, shown on hover and on the selected node: dragged onto another node, it moves the node under it. */
+/*
+ * The grip on the side the edge comes in, shown on hover and on the selected node: dragged onto another node, it
+ * moves the node under it. Hidden it stays transparent rather than invisible, so its half outside the box still takes
+ * the pointer and shows it to a cursor coming from outside.
+ */
 .react-flow__handle.mdmap-grip {
     width: 12px;
     height: 12px;
     border: 2px solid var(--mdmap-branch);
     background: var(--background-primary);
-    visibility: hidden;
+    opacity: 0;
 }
 .react-flow__node:hover .mdmap-grip,
 .react-flow__node.selected .mdmap-grip,
 .mdmap-grip.connectingfrom {
-    visibility: visible;
+    opacity: 1;
 }
 /*
  * The label while it is edited: the same text in the same box, plus a caret.
