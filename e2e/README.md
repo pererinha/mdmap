@@ -46,6 +46,7 @@ node e2e/focus.js      # the cursor on a heading in the note selects and centers
 node e2e/search.js     # Cmd/Ctrl+F, highlighted matches, Enter / Shift+Enter center them, Escape; Cmd/Ctrl+F in the note is Obsidian's
 node e2e/editing.js    # editing in place: same look, caret where clicked, the box grows, Enter / Escape, long titles, a paragraph edited whole
 node e2e/colors.js     # the gear's colours on a note with 13 top-level branches: a tab per theme with the centre and the palette; the centre opens a bar with its text colour, branches past the sixth lighter each round, a new branch too; a palette colour opens a bar with its shades, which colour the nodes under its branches by level; Edit; hex typed or picked reaches the open map in its theme only; kept on reload; "Use theme colors"; Escape and a canvas click close; the colours saved before are put back
+node e2e/android.js    # Obsidian for Android on an emulator (see "Android" below): the node being edited stays visible above the keyboard; a tap outside saves it
 ```
 
 The scenarios create, rewrite and delete notes, so they stop unless the
@@ -54,3 +55,37 @@ Obsidian on the port has `test-vault/` open.
 Each scenario prints the content of `Canal.md` after each step and saves
 screenshots to `e2e/shots/`. Write the output to a file instead of piping it
 through `head`: a closed pipe kills the scenario midway.
+
+## Android
+
+`e2e/android.js` tests the map in Obsidian for Android, on an emulator. It:
+
+1. installs the build from the repository's root;
+2. opens the map of `Android-e2e.md`;
+3. double-taps a node in the middle of the screen and one near the bottom, and
+   checks that each stays visible above the keyboard;
+4. types in the node, taps outside it, and checks that the note has the new
+   title.
+
+Set up once:
+
+- Create an Android emulator (AVD) in Android Studio's Device Manager, and set
+  `hw.keyboard=no` in its `config.ini`. With `hw.keyboard=yes`, the on-screen
+  keyboard shows only a small toolbar with no height, and the test fails.
+- Install Obsidian from its APK:
+  `gh release download -R obsidianmd/obsidian-releases -p '*.apk'`, then
+  `adb install Obsidian-*.apk`.
+- In Obsidian, create a vault named `mdmaptest` in the app's storage.
+
+Run:
+
+```sh
+emulator -avd <name> -no-window -no-audio &
+adb shell am start -n md.obsidian/.MainActivity
+node e2e/android.js
+```
+
+The script looks for `adb` in `$ANDROID_HOME/platform-tools` (default
+`~/Library/Android/sdk`). To change it, set `ADB`. To use another vault, set
+`MDMAP_ANDROID_VAULT`. To change the port on this computer that connects to
+Obsidian on the emulator (default 9444), set `MDMAP_ANDROID_PORT`.
