@@ -17,6 +17,8 @@ export const en = {
     listItemsName: 'List items and paragraphs as nodes',
     listItemsDesc:
         'Show the list items and paragraphs under a heading as nodes; a list right after a paragraph becomes its children. Takes effect when a mind map is opened.',
+    mapWidthName: 'Mind map width',
+    mapWidthDesc: "The mind map's share of the window when it opens next to the note, in percent; the note gets the rest.",
 };
 
 export type Strings = typeof en;

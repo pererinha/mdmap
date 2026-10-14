@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile } from 'obsidian';
+import { Notice, Plugin, TFile, WorkspaceLeaf } from 'obsidian';
 import EditorView, { VIEW_TYPE } from './editor-view';
 import { mapRoot, parseMarkdown } from './md-tree';
 import { toMermaidMindmap } from './mermaid';
@@ -50,6 +50,7 @@ export default class MdmapPlugin extends Plugin {
         }
         const leaf = this.app.workspace.getLeaf('split', 'vertical');
         await leaf.setViewState({ type: VIEW_TYPE, state: { file: file.path }, active: true });
+        sizeSplit(leaf, this.settings.mapWidth);
     }
 
     private async copyMermaid() {
@@ -61,5 +62,26 @@ export default class MdmapPlugin extends Plugin {
         const root = mapRoot(parseMarkdown(md, undefined, { listItems: this.settings.listItemsAsNodes }), file.basename);
         await navigator.clipboard.writeText(toMermaidMindmap(root));
         new Notice(t('mermaidCopied'));
+    }
+}
+
+/** Obsidian internals, not in its public API: a split's tab groups, and the share of the split a group takes. */
+interface SplitItem {
+    children?: SplitItem[];
+    setDimension?(percent: number | null): void;
+}
+
+/**
+ * Gives the leaf's tab group `width` percent of its split and the other group the rest.
+ * ponytail: only a split of exactly two groups (the note and the map) is sized, and only while Obsidian has
+ * setDimension; otherwise the split stays as Obsidian made it, half and half.
+ */
+function sizeSplit(leaf: WorkspaceLeaf, width: number) {
+    const map = leaf.parent as unknown as SplitItem;
+    const split = leaf.parent.parent as unknown as SplitItem;
+    const note = split.children?.length === 2 ? split.children.find(child => child !== map) : undefined;
+    if (map.setDimension && note?.setDimension) {
+        map.setDimension(width);
+        note.setDimension(100 - width);
     }
 }

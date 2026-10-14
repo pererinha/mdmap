@@ -18,4 +18,6 @@ export const ptBR: Strings = {
     listItemsName: 'Itens de lista e parágrafos como nós',
     listItemsDesc:
         'Mostra como nós os itens de lista e os parágrafos sob um título; uma lista logo depois de um parágrafo vira filha dele. Vale quando um mapa mental é aberto.',
+    mapWidthName: 'Largura do mapa mental',
+    mapWidthDesc: 'Parte da janela que o mapa mental ocupa ao abrir ao lado da nota, em porcentagem; a nota fica com o resto.',
 };
