@@ -1,0 +1,82 @@
+// Interface language: with Obsidian in Brazilian Portuguese the commands, the organizer buttons, the search field and
+// the gear menu are in Portuguese; back in English they are in English. Obsidian's getLanguage() reads
+// localStorage.language, so the scenario sets it, reloads the window and puts the previous value back at the end.
+const { connect, sleep, openEditor, shot } = require('./lib');
+
+/**
+ * Sets the app language and reloads the window, which loads the plugin again. A scenario before this one can leave
+ * no note open, and openEditor needs one after a reload: the note opens in the leaf Obsidian would reuse.
+ */
+async function setLanguage(page, language) {
+  await page.evaluate(language => (language ? localStorage.setItem('language', language) : localStorage.removeItem('language')), language);
+  await page.reload();
+  await page.waitForFunction(() => window.app?.workspace?.layoutReady && app.commands.commands['mdmap:edit-mind-map'], { timeout: 30000 });
+  await page.evaluate(async () => {
+    app.workspace.detachLeavesOfType('mdmap');
+    if (app.workspace.getLeavesOfType('markdown').length === 0) {
+      const leaf = app.workspace.getLeaf(false);
+      await leaf.openFile(app.vault.getAbstractFileByPath('Canal.md'));
+      await leaf.loadIfDeferred();
+    }
+  });
+  await sleep(1000);
+}
+
+/** Opens the map after a reload and waits until its buttons are on the page. */
+async function openMap(page) {
+  await openEditor(page);
+  await page.waitForFunction(() => app.workspace.getLeavesOfType('mdmap')[0]?.view.containerEl.querySelector('.mdmap-organize'), { timeout: 15000 });
+}
+
+/** The text the plugin shows: commands, organizer buttons, search placeholder and gear menu items. */
+async function texts(page) {
+  const native = await page.evaluate(() => {
+    const previous = app.vault.getConfig('nativeMenus');
+    app.vault.setConfig('nativeMenus', false);
+    return previous;
+  });
+  const shown = await page.evaluate(async () => {
+    const view = app.workspace.getLeavesOfType('mdmap')[0].view.containerEl;
+    const settings = Array.from(view.querySelectorAll('.view-action')).find(a => a.querySelector('.lucide-settings'));
+    settings.click();
+    await new Promise(r => setTimeout(r, 300));
+    const menu = Array.from(document.querySelectorAll('.menu .menu-item-title')).map(i => i.textContent);
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    return {
+      commands: Object.values(app.commands.commands).filter(c => c.id.startsWith('mdmap:')).map(c => c.name),
+      organizers: Array.from(view.querySelectorAll('.mdmap-organize')).map(b => b.textContent),
+      search: view.querySelector('.mdmap-search-input').placeholder,
+      gear: settings.getAttribute('aria-label'),
+      menu,
+    };
+  });
+  await page.evaluate(previous => app.vault.setConfig('nativeMenus', previous), native);
+  return shown;
+}
+
+(async () => {
+  const ctx = await connect();
+  const { page } = ctx;
+  const previous = await page.evaluate(() => localStorage.getItem('language'));
+
+  try {
+    await setLanguage(page, 'pt-BR');
+    await openMap(page);
+    const pt = await texts(page);
+    console.log('pt-BR:', JSON.stringify(pt));
+    console.log('in Portuguese:', pt.organizers.join() === 'Árvore,Raiz no centro,Radial' && pt.search === 'Buscar nós'
+      && pt.gear === 'Configurações do mapa mental' && pt.menu.includes('Mostrar parágrafos')
+      && pt.commands.some(c => c.endsWith('Editar a nota atual como mapa mental')));
+    console.log(await shot(page, 'i18n-01-pt-br'));
+  } finally {
+    await setLanguage(page, previous);
+  }
+  await openMap(page);
+  const en = await texts(page);
+  console.log('back:', JSON.stringify(en));
+  console.log('in English:', en.organizers.join() === 'Tidy tree,Center root,Radial' && en.search === 'Search nodes'
+    && en.gear === 'Mind map settings' && en.menu.includes('Show paragraphs')
+    && en.commands.some(c => c.endsWith('Edit current note as mind map')));
+  console.log('language restored:', (await page.evaluate(() => localStorage.getItem('language'))) === previous);
+  ctx.browser.disconnect();
+})().catch(e => { console.error('ERR', e); process.exit(1); });

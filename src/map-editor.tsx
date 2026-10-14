@@ -30,6 +30,7 @@ import type { Edge, Node, NodeProps, OnConnectEnd, OnNodeDrag, OnSelectionChange
 import { setIcon } from 'obsidian';
 import { PlainNode, XY } from './md-tree';
 import { Facing, Layout, MdNodeData, NODE_TYPE, layoutTree } from './tree-layout';
+import { t } from './i18n';
 import { addChild, addSiblingAfter, findNode, isDescendant, moveInto, moveSibling, remove, searchNodes, setText } from './tree-ops';
 
 export interface ResolvedMedia {
@@ -160,7 +161,7 @@ function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
             {handles}
             {data.depth > 0 && !data.editing && (
                 // On the side the edge from the parent comes in; dragged onto another node, it moves this node under that one.
-                <Handle type="source" id="grip" position={data.side === 'left' ? Position.Right : Position.Left} className="mdmap-grip" aria-label="Drag onto another node to move this node under it" />
+                <Handle type="source" id="grip" position={data.side === 'left' ? Position.Right : Position.Left} className="mdmap-grip" aria-label={t('grip')} />
             )}
             {data.editing ? (
                 <span
@@ -223,7 +224,7 @@ function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
             // Shown on hover and on the selected node; `nodrag` keeps a press on it from dragging the node.
             <button
                 className="mdmap-copy nodrag"
-                aria-label="Copy as Markdown"
+                aria-label={t('copyAsMarkdown')}
                 ref={el => {
                     if (el && !el.firstChild) {
                         setIcon(el, 'copy');
@@ -256,9 +257,9 @@ function easeInOutCubic(t: number): number {
 }
 
 const ORGANIZERS: Array<{ layout: Layout; label: string }> = [
-    { layout: 'right', label: 'Tidy tree' },
-    { layout: 'center', label: 'Center root' },
-    { layout: 'radial', label: 'Radial' },
+    { layout: 'right', label: t('tidyTree') },
+    { layout: 'center', label: t('centerRoot') },
+    { layout: 'radial', label: t('radial') },
 ];
 
 function Editor({ root: initialRoot, positions: initialPositions, onChange, onReady, resolveMedia, onOpenMedia, onClickNode, onCopyNode }: MapEditorProps) {
@@ -674,8 +675,8 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                         ref={searchRef}
                         className="mdmap-search-input"
                         type="text"
-                        placeholder="Search nodes"
-                        aria-label="Search nodes"
+                        placeholder={t('searchNodes')}
+                        aria-label={t('searchNodes')}
                         value={query}
                         onChange={event => {
                             setQuery(event.target.value);

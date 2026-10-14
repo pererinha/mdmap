@@ -5,6 +5,7 @@ import { ParseOptions, PlainNode, XY } from './md-tree';
 import { MapEditor, MapEditorHandle, ResolvedMedia } from './map-editor';
 import { clearReveal, revealLine } from './reveal';
 import { MdmapSettings } from './settings';
+import { t } from './i18n';
 
 export const VIEW_TYPE = 'mdmap';
 
@@ -52,7 +53,7 @@ export default class EditorView extends ItemView {
         this.contentEl.addClass('mdmap-content');
         this.host = this.contentEl.createDiv({ cls: 'mdmap-host' });
         this.registerEvent(this.app.workspace.on('resize', () => this.editor?.fit()));
-        this.addAction('settings', 'Mind map settings', evt => this.showSettings(evt));
+        this.addAction('settings', t('viewSettings'), evt => this.showSettings(evt));
         // Cmd/Ctrl+F while the map has focus goes to its search field instead of Obsidian's file search.
         this.scope = new Scope(this.app.scope);
         this.scope.register(['Mod'], 'f', () => {
@@ -66,7 +67,7 @@ export default class EditorView extends ItemView {
         new Menu()
             .addItem(item =>
                 item
-                    .setTitle('Show clicked node in the note')
+                    .setTitle(t('showClickedNode'))
                     .setChecked(this.settings.revealInNote)
                     .onClick(async () => {
                         this.settings.revealInNote = !this.settings.revealInNote;
@@ -78,7 +79,7 @@ export default class EditorView extends ItemView {
             )
             .addItem(item =>
                 item
-                    .setTitle('Show paragraphs')
+                    .setTitle(t('showParagraphs'))
                     .setChecked(this.settings.paragraphsAsNodes)
                     // Without list items as nodes, paragraphs are never nodes.
                     .setDisabled(!this.settings.listItemsAsNodes)
@@ -120,7 +121,7 @@ export default class EditorView extends ItemView {
     private async start() {
         const file = this.app.vault.getAbstractFileByPath(this.filePath);
         if (!(file instanceof TFile)) {
-            this.host.setText(`File not found: ${this.filePath}`);
+            this.host.setText(`${t('fileNotFound')}: ${this.filePath}`);
             return;
         }
         this.sync?.unwatch();
@@ -171,7 +172,7 @@ export default class EditorView extends ItemView {
     /** Puts the node and everything under it on the clipboard, as Markdown from the note. */
     private async copyNode(id: string) {
         await navigator.clipboard.writeText(this.sync.markdownOf(id));
-        new Notice('Copied as Markdown');
+        new Notice(t('copiedAsMarkdown'));
     }
 
     /** Vault embeds resolve through the metadata cache; http(s) links are used as they are. */
