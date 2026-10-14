@@ -1,5 +1,54 @@
 # Changelog
 
+## 1.3.0
+
+- Nodes collapse and expand. Press Space on the selected node, or click the
+  dot on the side its children leave from, and its children hide; a collapsed
+  node shows how many nodes it hides. Collapsing a heading or a list item folds
+  it in the note, and folding it in the note collapses the node; when the map
+  opens, the note's folds win. A search match, the node of the line your cursor
+  is on, Tab on a collapsed node and a node moved into one show what was hidden
+  above them. The map remembers each note's collapsed nodes. Space no longer
+  pans the canvas; dragging it still does.
+- That dot is drawn like the grip and drags like it: drop it on another node
+  and the node, with everything under it, moves there.
+- "Show paragraphs" under the map's gear hides paragraph nodes and shows them
+  again, without rewriting the note. With paragraphs hidden, their text stays
+  in the heading's body, and text after a list item belongs to that item, so
+  moving or deleting the item in the map takes the text with it.
+- A "Mind map width" setting gives the map 20 to 80 % of the window when it
+  opens next to the note.
+- The interface follows Obsidian's language. Brazilian Portuguese is the first
+  translation, also used for Portuguese; other languages stay in English.
+- The grip shows as soon as the pointer reaches it, also from outside the
+  node's box.
+- A paragraph you double-click in a long note is edited where it is. Its whole
+  text, taller than the box, used to send its branch to the other side of the
+  root, away from the pointer.
+- The map's settings moved from the gear in the view header to a gear inside
+  the map, next to the layout buttons. Its panel has "Show clicked node in the
+  note" and "Show paragraphs" as switches, and the colours.
+- The plugin's settings tab has the same settings as the map's gear, and
+  Obsidian's settings search finds them: "Show paragraphs", "Show clicked node
+  in the note", and under "Colors", "Node colors", which opens the colour
+  editor, and "Use theme colors".
+- Node colours can be changed, separately for the light and the dark theme:
+  the centre, the text on it, and the six palette colours the top-level
+  branches take in turn. A palette colour opens a bar with its lighter shades,
+  which can be changed too. Edit unlocks a colour picker and a field for the
+  hex; "Use theme colors" goes back to the theme's. Until you change them, the
+  colours follow Obsidian's theme.
+- Top-level branches past the sixth no longer repeat the first six colours:
+  each round of the palette is 25 % closer to white than the one before, up to
+  75 %, so a colour comes back only after 24 branches.
+- The layout buttons are one group, each with an icon and its name; on a
+  narrow map, a phone's for one, only the icons show.
+- Edges are drawn behind the boxes, also when the node they reach is selected,
+  and a node you drag stays over the others.
+- Thanks to CalQL8or for the suggestions behind collapsing nodes, hiding
+  paragraphs, the width setting and the translation.
+- Thanks to sanketss84 for the suggestion behind the node colours.
+
 ## 1.2.1
 
 - The "List items and paragraphs as nodes" setting shows up in Obsidian's
