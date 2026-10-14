@@ -18,7 +18,8 @@
  * tables, code, quotes, embeds) stays in the body of the node before it and
  * travels with it; lines before the first such node stay the heading's body.
  * Under a heading, items and paragraphs come before heading children, as in
- * the document.
+ * the document. With paragraphs turned off, paragraph lines stay text like
+ * tables do, and a list after a paragraph belongs to the heading.
  *
  * Node positions the user dragged are kept at the end of the note in an
  * Obsidian comment block, keyed by the node's title path. Each value is the
@@ -105,6 +106,8 @@ export interface PlainNode {
 export interface ParseOptions {
     /** Turn list items and paragraphs into nodes (default true). */
     listItems?: boolean;
+    /** With list items on, turn paragraphs into nodes too (default true). */
+    paragraphs?: boolean;
 }
 
 const HEADING_RE = /^(#{1,6})(?:\s+(.*))?$/;
@@ -192,7 +195,7 @@ export function parseMarkdown(md: string, previous?: MdTree, options: ParseOptio
         }
     });
     if (options.listItems !== false) {
-        splitBody(root);
+        splitBody(root, options.paragraphs !== false);
     }
     if (previous) {
         adoptIds(root, previous.root);
@@ -264,8 +267,8 @@ function introducesList(lines: string[], start: number): boolean {
     return false;
 }
 
-/** Turns the list items and paragraphs in a heading's body into child nodes; recurses into sub-headings. */
-function splitBody(heading: MdNode): void {
+/** Turns the list items and, if `paragraphs`, the paragraphs in a heading's body into child nodes; recurses into sub-headings. */
+function splitBody(heading: MdNode, paragraphs: boolean): void {
     const headingChildren = heading.children;
     const lead: string[] = [];
     const blocks: MdNode[] = [];
@@ -321,7 +324,7 @@ function splitBody(heading: MdNode): void {
             afterBlank = false;
             continue;
         }
-        if (afterBlank && isParagraphStart(line)) {
+        if (paragraphs && afterBlank && isParagraphStart(line)) {
             // A paragraph right after another one joins its block; a paragraph that a list follows is its own node.
             if (openParagraph && !introducesList(heading.body, index)) {
                 owner.push(line);
@@ -346,7 +349,7 @@ function splitBody(heading: MdNode): void {
         heading.body = lead;
         heading.children = [...blocks, ...headingChildren];
     }
-    headingChildren.forEach(splitBody);
+    headingChildren.forEach(child => splitBody(child, paragraphs));
 }
 
 function adoptIds(node: MdNode, previous: MdNode): void {

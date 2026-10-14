@@ -1,7 +1,7 @@
 import { ItemView, MarkdownView, Menu, Notice, Scope, TFile, ViewStateResult, WorkspaceLeaf } from 'obsidian';
 import { createRoot, Root } from 'react-dom/client';
 import { EditorSync, whenSized } from './editor-sync';
-import { PlainNode, XY } from './md-tree';
+import { ParseOptions, PlainNode, XY } from './md-tree';
 import { MapEditor, MapEditorHandle, ResolvedMedia } from './map-editor';
 import { clearReveal, revealLine } from './reveal';
 import { MdmapSettings } from './settings';
@@ -76,6 +76,22 @@ export default class EditorView extends ItemView {
                         }
                     }),
             )
+            .addItem(item =>
+                item
+                    .setTitle('Show paragraphs')
+                    .setChecked(this.settings.paragraphsAsNodes)
+                    // Without list items as nodes, paragraphs are never nodes.
+                    .setDisabled(!this.settings.listItemsAsNodes)
+                    .onClick(async () => {
+                        this.settings.paragraphsAsNodes = !this.settings.paragraphsAsNodes;
+                        await this.saveSettings();
+                        for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
+                            if (leaf.view instanceof EditorView) {
+                                leaf.view.reparse();
+                            }
+                        }
+                    }),
+            )
             .showAtMouseEvent(evt);
     }
 
@@ -108,9 +124,7 @@ export default class EditorView extends ItemView {
             return;
         }
         this.sync?.unwatch();
-        this.sync = new EditorSync(this.app, file, root => this.editor?.reload(root, this.sync.positions()), {
-            listItems: this.settings.listItemsAsNodes,
-        });
+        this.sync = new EditorSync(this.app, file, root => this.editor?.reload(root, this.sync.positions()), this.parseOptions());
         const root = await this.sync.load();
         // React Flow needs a sized container to fit the view on its first render.
         await whenSized(this.host);
@@ -130,6 +144,20 @@ export default class EditorView extends ItemView {
             />,
         );
         this.sync.watch();
+    }
+
+    private parseOptions(): ParseOptions {
+        return { listItems: this.settings.listItemsAsNodes, paragraphs: this.settings.paragraphsAsNodes };
+    }
+
+    /**
+     * Shows the note parsed with the current settings in the same map, which keeps its viewport. Undo and redo
+     * are dropped: their trees come from the previous parse and would write the note wrong.
+     */
+    reparse() {
+        if (this.sync && this.editor) {
+            this.editor.reload(this.sync.reparse(this.parseOptions()), this.sync.positions(), true);
+        }
     }
 
     /** Selects and centers the node of the heading on that line of the note; other lines are ignored. */

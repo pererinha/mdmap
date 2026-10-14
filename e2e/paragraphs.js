@@ -1,6 +1,7 @@
 // Paragraphs as nodes: paragraphs that follow one another are one block of wrapped text that stays inside its
 // box, "Regras das falas:" carries the rules as its children, Tab on a paragraph writes a list item right under
-// it, undo restores the note, and clicking a block highlights its first line in the note.
+// it, undo restores the note, clicking a block highlights its first line in the note, and "Show paragraphs" in the
+// gear menu hides and shows the paragraph nodes in the same map, without writing the note.
 const { connect, sleep, reloadPlugin, openEditor, clickNode, md, shot, view } = require('./lib');
 
 const FILE = 'Paragraphs-e2e.md';
@@ -24,6 +25,42 @@ const NOTE = [
   '2. [dramatizado]: frase criada para o debate.',
   '',
 ].join('\n');
+
+/**
+ * Clicks "Show paragraphs" in the gear menu of the map's header, with in-page menus as in reveal.js; returns the
+ * saved setting, and whether in any frame of the next second the map was replaced or its viewport moved.
+ */
+async function showParagraphs(page) {
+  const native = await page.evaluate(() => {
+    const previous = app.vault.getConfig('nativeMenus');
+    app.vault.setConfig('nativeMenus', false);
+    return previous;
+  });
+  await page.evaluate(() => app.workspace.getLeavesOfType('mdmap')[0].view.containerEl.querySelector('.view-action[aria-label="Mind map settings"]').click());
+  await sleep(300);
+  const item = await page.evaluate(() => new Promise(resolve => {
+    const host = app.workspace.getLeavesOfType('mdmap')[0].view.containerEl;
+    const map = host.querySelector('.react-flow');
+    const viewport = () => host.querySelector('.react-flow__viewport')?.style.transform;
+    const before = viewport();
+    let replaced = false;
+    let moved = false;
+    const el = Array.from(document.querySelectorAll('.menu .menu-item')).find(i => i.textContent.includes('Show paragraphs'));
+    el?.click();
+    const t0 = performance.now();
+    const frame = () => {
+      replaced ||= host.querySelector('.react-flow') !== map;
+      moved ||= viewport() !== before;
+      if (performance.now() - t0 < 1000) requestAnimationFrame(frame);
+      else resolve({ found: !!el, disabled: !!el?.classList.contains('is-disabled'), replaced, moved });
+    };
+    requestAnimationFrame(frame);
+  }));
+  await sleep(500);
+  await page.evaluate(previous => app.vault.setConfig('nativeMenus', previous), native);
+  const saved = await page.evaluate(async () => JSON.parse(await app.vault.adapter.read('.obsidian/plugins/mdmap/data.json')).paragraphsAsNodes);
+  return { ...item, saved };
+}
 
 (async () => {
   const ctx = await connect();
@@ -103,7 +140,38 @@ const NOTE = [
   console.log('highlighted line:', JSON.stringify(revealed.map(l => l.slice(0, 30))), '| is the first line of the block:', revealed.length === 1 && revealed[0] === LONG);
   console.log(await shot(page, 'paragraphs-03-reveal'));
 
-  console.log('writes:', ctx.drain().filter(l => l.includes('wrote')).length, '(Tab and undo)');
+  // 5. "Show paragraphs" in the gear menu: off, no paragraph nodes and the rules hang from the heading; on, they are
+  // back. The map stays the same element and the viewport does not move. The toggle drops undo: the history holds
+  // trees of the other parse, which would write the note wrong.
+  const tree = () => page.evaluate(`(() => {
+    const nodes = (${view})().editor.instance.getNodes();
+    const root = nodes.find(n => n.data.depth === 0);
+    return { kinds: nodes.map(n => n.data.kind), underRoot: nodes.filter(n => n.parentId === root.id).map(n => n.data.kind + ': ' + n.data.title.slice(0, 20)) };
+  })()`);
+  await clickNode(page, 'Vozes');
+  await page.keyboard.down('Meta');
+  await page.keyboard.down('Shift');
+  await page.keyboard.press('z');
+  await page.keyboard.up('Shift');
+  await page.keyboard.up('Meta');
+  await sleep(800);
+  console.log('redo brings back the rule from step 2, so undo has something to undo:', (await md(page, FILE)) === expected);
+  const off = await showParagraphs(page);
+  const hidden = await tree();
+  console.log('gear off:', JSON.stringify(off), '| no paragraph nodes:', !hidden.kinds.includes('paragraph'), '| under "Vozes":', JSON.stringify(hidden.underRoot), '| no flicker:', !off.replaced && !off.moved);
+  console.log(await shot(page, 'paragraphs-04-hidden'));
+  await clickNode(page, 'Vozes');
+  await page.keyboard.down('Meta');
+  await page.keyboard.press('z');
+  await page.keyboard.up('Meta');
+  await sleep(800);
+  console.log('undo after turning off has nothing to undo; the note is unchanged:', (await md(page, FILE)) === expected);
+  const on = await showParagraphs(page);
+  const shown = await tree();
+  console.log('gear on:', JSON.stringify(on), '| paragraph nodes back:', shown.kinds.filter(k => k === 'paragraph').length, '| no flicker:', !on.replaced && !on.moved);
+  console.log('the toggles did not write the note:', (await md(page, FILE)) === expected);
+
+  console.log('writes:', ctx.drain().filter(l => l.includes('wrote')).length, '(Tab, undo and redo)');
   await page.evaluate(async file => {
     app.workspace.getLeavesOfType('mdmap').filter(l => l.view.getState().file === file).forEach(l => l.detach());
     await app.vault.delete(app.vault.getAbstractFileByPath(file));

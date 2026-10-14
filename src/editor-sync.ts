@@ -33,6 +33,13 @@ export class EditorSync {
         return mapRoot(this.tree, this.file.basename);
     }
 
+    /** Parses the file again with these options; nodes that stay keep their ids. */
+    reparse(options: ParseOptions): PlainNode {
+        this.options = options;
+        this.tree = parseMarkdown(this.lastWritten, this.tree, options);
+        return this.root();
+    }
+
     /** The file's saved positions, keyed by node id of the current root. */
     positions(): Record<string, XY> {
         return positionsToIds(this.root(), this.tree.positions);

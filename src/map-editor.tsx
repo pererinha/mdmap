@@ -38,8 +38,8 @@ export interface ResolvedMedia {
 }
 
 export interface MapEditorHandle {
-    /** Shows a tree read from the file, with the file's saved positions. */
-    reload(root: PlainNode, positions?: Record<string, XY>): void;
+    /** Shows a tree read from the file, with the file's saved positions; `resetHistory` drops undo and redo. */
+    reload(root: PlainNode, positions?: Record<string, XY>, resetHistory?: boolean): void;
     /** Recomputes every position in the given layout and forgets the saved ones. */
     organize(layout: Layout): void;
     fit(): Promise<boolean>;
@@ -402,7 +402,11 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
     const handleRef = useRef<MapEditorHandle | null>(null);
     useEffect(() => {
         handleRef.current = {
-            reload(root, positions) {
+            reload(root, positions, resetHistory) {
+                if (resetHistory) {
+                    past.current = [];
+                    future.current = [];
+                }
                 rootRef.current = root;
                 if (positions) {
                     positionsRef.current = positions;

@@ -154,6 +154,16 @@ describe('md-tree with a real note (story.md)', () => {
         expect(find(root, '4) the protagonist main story conflict')!.media).to.have.length(1);
     });
 
+    it('with paragraphs off, round-trips byte for byte and has no paragraph nodes', () => {
+        const tree = parseMarkdown(story, undefined, { paragraphs: false });
+        expect(serializeMarkdown(tree)).to.equal(story);
+        const kinds: string[] = [];
+        const walk = (node: PlainNode) => (kinds.push(node.kind ?? ''), node.children.forEach(walk));
+        walk(mapRoot(tree, 'story'));
+        expect(kinds).to.include('list');
+        expect(kinds).to.not.include('paragraph');
+    });
+
     it('keeps list items as body when the option is off', () => {
         const root = mapRoot(parseMarkdown(story, undefined, { listItems: false }), 'story');
         expect(find(root, 'a narrative')!.children).to.have.length(0);
@@ -376,6 +386,19 @@ describe('md-tree list items', () => {
         expect(find(root, 'intro paragraph')!.children.map(c => c.title)).to.deep.equal(['first', 'second', 'third']);
         expect(find(root, 'second')!.children.map(c => c.title)).to.deep.equal(['nested']);
         expect(find(root, 'third')!.preview).to.equal(undefined);
+    });
+
+    it('with paragraphs off, round-trips byte for byte and the items hang from the heading', () => {
+        const tree = parseMarkdown(NOTE, undefined, { paragraphs: false });
+        expect(serializeMarkdown(tree)).to.equal(NOTE);
+        const root = mapRoot(tree, 'note');
+        expect(find(root, 'Plan')!.children.map(c => [c.title, c.kind])).to.deep.equal([
+            ['first', 'list'],
+            ['second', 'list'],
+            ['third', 'list'],
+        ]);
+        expect(find(root, 'Plan')!.preview).to.equal('intro paragraph');
+        expect(find(root, 'third')!.preview).to.equal('closing paragraph');
     });
 
     it('renames a list item in place', () => {
