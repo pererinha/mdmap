@@ -34,10 +34,12 @@
   editor, and "Use theme colors".
 - Node colours can be changed, separately for the light and the dark theme:
   the centre, the text on it, and the six palette colours the top-level
-  branches take in turn. A palette colour opens a bar with its lighter shades,
-  which can be changed too. Edit unlocks a colour picker and a field for the
-  hex; "Use theme colors" goes back to the theme's. Until you change them, the
-  colours follow Obsidian's theme.
+  branches take in turn. A palette colour opens a bar with its shades, one for
+  each level under its branches: the branch's children take the first, their
+  children the second, and every level further down the third; until changed,
+  each level is 25 % closer to white. Edit unlocks a colour picker and a field
+  for the hex; "Use theme colors" goes back to the theme's. Until you change
+  them, the colours follow Obsidian's theme.
 - Top-level branches past the sixth no longer repeat the first six colours:
   each round of the palette is 25 % closer to white than the one before, up to
   75 %, so a colour comes back only after 24 branches.
