@@ -9,6 +9,9 @@
  * Alt+Up/Down reorders, dropping a node or the grip on its incoming side onto another node reparents,
  * Cmd+Z / Cmd+Shift+Z undo and redo. The search field at the top-left highlights the nodes that
  * contain its text; Enter and Shift+Enter center the next and previous one.
+ * Space, or the button on the side a node's children leave from, collapses and expands them; a
+ * collapsed node shows how many nodes it hides. Showing a hidden node (search, focus, Tab, a move
+ * into it) expands the nodes above it.
  */
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -31,7 +34,7 @@ import { setIcon } from 'obsidian';
 import { PlainNode, XY } from './md-tree';
 import { Facing, Layout, MdNodeData, NODE_TYPE, layoutTree } from './tree-layout';
 import { t } from './i18n';
-import { addChild, addSiblingAfter, findNode, isDescendant, moveInto, moveSibling, remove, searchNodes, setText } from './tree-ops';
+import { addChild, addSiblingAfter, ancestorIds, countDescendants, findNode, isDescendant, moveInto, moveSibling, remove, searchNodes, setText } from './tree-ops';
 
 export interface ResolvedMedia {
     src: string;
@@ -65,6 +68,10 @@ interface MapEditorProps {
     onClickNode?: (id: string | null) => void;
     /** The copy button on a node: the node and everything under it as Markdown. */
     onCopyNode?: (id: string) => void;
+    /** Ids of the nodes whose children start hidden. */
+    collapsed?: string[];
+    /** The nodes whose children are hidden, after every change. */
+    onCollapse?: (ids: string[]) => void;
 }
 
 interface EditorNodeData extends MdNodeData {
@@ -80,6 +87,9 @@ interface EditorNodeData extends MdNodeData {
     onEditInput(id: string, text: string): void;
     onCommit(id: string, text: string): void;
     onCancel(): void;
+    /** A node other than the root with children: whether they are hidden, and how many nodes that hides. */
+    fold?: { collapsed: boolean; hidden: number };
+    onToggle(id: string): void;
 }
 
 type EditorNode = Node<EditorNodeData, typeof NODE_TYPE>;
@@ -162,6 +172,24 @@ function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
             {data.depth > 0 && !data.editing && (
                 // On the side the edge from the parent comes in; dragged onto another node, it moves this node under that one.
                 <Handle type="source" id="grip" position={data.side === 'left' ? Position.Right : Position.Left} className="mdmap-grip" aria-label={t('grip')} />
+            )}
+            {data.fold && !data.editing && (
+                // On the side the children leave from, drawn like the grip and dragged like it; a click collapses or
+                // expands the children, and a collapsed node shows here how many nodes it hides.
+                <Handle
+                    type="source"
+                    id="fold"
+                    position={data.side === 'left' ? Position.Left : Position.Right}
+                    className={`mdmap-fold${data.fold.collapsed ? ' mdmap-collapsed' : ''}`}
+                    aria-label={data.fold.collapsed ? `${t('expand')} (${data.fold.hidden})` : t('collapse')}
+                    onClick={e => {
+                        e.stopPropagation();
+                        data.onToggle(id);
+                    }}
+                    onDoubleClick={e => e.stopPropagation()}
+                >
+                    {data.fold.collapsed ? data.fold.hidden : null}
+                </Handle>
             )}
             {data.editing ? (
                 <span
@@ -262,7 +290,7 @@ const ORGANIZERS: Array<{ layout: Layout; label: string }> = [
     { layout: 'radial', label: t('radial') },
 ];
 
-function Editor({ root: initialRoot, positions: initialPositions, onChange, onReady, resolveMedia, onOpenMedia, onClickNode, onCopyNode }: MapEditorProps) {
+function Editor({ root: initialRoot, positions: initialPositions, onChange, onReady, resolveMedia, onOpenMedia, onClickNode, onCopyNode, collapsed: initialCollapsed, onCollapse }: MapEditorProps) {
     const flow = useReactFlow<EditorNode>();
     const rootRef = useRef(initialRoot);
     const positionsRef = useRef<Record<string, XY>>(initialPositions ?? {});
@@ -282,6 +310,10 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
     const [current, setCurrent] = useState(-1);
     /** Frame request of the running organizer animation, if any. */
     const animation = useRef<number | null>(null);
+    /** Nodes whose children are hidden. */
+    const collapsed = useRef<ReadonlySet<string>>(new Set(initialCollapsed));
+    /** A node that focus() expanded the map to show; it is centered once it is measured. */
+    const pendingFocus = useRef<string | null>(null);
 
     const stopAnimation = useCallback(() => {
         if (animation.current !== null) {
@@ -293,25 +325,38 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
     /** Editor nodes and edges for the tree in the current layout and saved positions. */
     const build = useCallback(
         (root: PlainNode): { nodes: EditorNode[]; edges: Edge[] } => {
-            const laid = layoutTree(root, layoutRef.current, positionsRef.current);
+            const laid = layoutTree(root, layoutRef.current, positionsRef.current, collapsed.current);
+            // The laid-out tree lacks the children of collapsed nodes; their fold buttons count them in the whole tree.
+            const whole = new Map<string, PlainNode>();
+            const index = (node: PlainNode): void => {
+                whole.set(node.id, node);
+                node.children.forEach(index);
+            };
+            index(root);
             return {
-                nodes: laid.nodes.map(node => ({
-                    ...node,
-                    selected: node.id === selectedId.current,
-                    data: {
-                        ...node.data,
-                        editing: false,
-                        onEditInput,
-                        onCommit,
-                        onCancel,
-                        onOpenMedia,
-                        onCopy: onCopyNode,
-                        resolved: (node.data.media ?? [])
-                            .map(link => ({ link, resolved: resolveMedia?.(link) ?? null }))
-                            .filter(item => item.resolved !== null)
-                            .map(item => ({ link: item.link, ...item.resolved! })),
-                    },
-                })),
+                nodes: laid.nodes.map(node => {
+                    const full = whole.get(node.id);
+                    const folded = collapsed.current.has(node.id);
+                    return {
+                        ...node,
+                        selected: node.id === selectedId.current,
+                        data: {
+                            ...node.data,
+                            editing: false,
+                            onEditInput,
+                            onCommit,
+                            onCancel,
+                            onOpenMedia,
+                            onCopy: onCopyNode,
+                            fold: node.data.depth > 0 && full && full.children.length > 0 ? { collapsed: folded, hidden: folded ? countDescendants(full) : 0 } : undefined,
+                            onToggle: toggle,
+                            resolved: (node.data.media ?? [])
+                                .map(link => ({ link, resolved: resolveMedia?.(link) ?? null }))
+                                .filter(item => item.resolved !== null)
+                                .map(item => ({ link: item.link, ...item.resolved! })),
+                        },
+                    };
+                }),
                 edges: laid.edges,
             };
         },
@@ -326,6 +371,40 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
             setEdges(built.edges);
         },
         [stopAnimation, build, setNodes, setEdges],
+    );
+
+    /** Hides the children of the nodes in `next` and shows all others, and tells the view. */
+    const changeCollapsed = useCallback(
+        (next: ReadonlySet<string>) => {
+            collapsed.current = next;
+            onCollapse?.([...next]);
+        },
+        [onCollapse],
+    );
+
+    const toggle = useCallback(
+        (id: string) => {
+            const next = new Set(collapsed.current);
+            if (!next.delete(id)) {
+                next.add(id);
+            }
+            changeCollapsed(next);
+            render(rootRef.current);
+        },
+        [changeCollapsed, render],
+    );
+
+    /** Expands the collapsed nodes above `id` in `root`, so it shows; false when none was collapsed. Does not render. */
+    const expandAbove = useCallback(
+        (root: PlainNode, id: string): boolean => {
+            const above = ancestorIds(root, id).filter(ancestor => collapsed.current.has(ancestor));
+            if (above.length === 0) {
+                return false;
+            }
+            changeCollapsed(new Set([...collapsed.current].filter(other => !above.includes(other))));
+            return true;
+        },
+        [changeCollapsed],
     );
 
     /**
@@ -426,6 +505,11 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 return flow.fitView({ padding: FIT_PADDING, maxZoom: FIT_MAX_ZOOM });
             },
             focus(id) {
+                if (expandAbove(rootRef.current, id)) {
+                    pendingFocus.current = id;
+                    render(rootRef.current);
+                    return;
+                }
                 const node = flow.getInternalNode(id);
                 if (!node) {
                     return;
@@ -444,7 +528,16 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
             instance: flow,
         };
         onReady(handleRef.current);
-    }, [onReady, render, build, glide, setEdges, flow, onChange]);
+    }, [onReady, render, build, glide, setEdges, flow, onChange, expandAbove]);
+
+    // A node focus() had to expand the map for is centered once React Flow has measured it.
+    useEffect(() => {
+        const id = pendingFocus.current;
+        if (id && flow.getInternalNode(id)?.measured?.width) {
+            pendingFocus.current = null;
+            handleRef.current?.focus(id);
+        }
+    }, [nodes, flow]);
 
     /** Replaces the tree, records history and notifies the view. */
     const apply = useCallback(
@@ -528,7 +621,9 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 .getIntersectingNodes(node)
                 .find(other => other.id !== node.id && !isDescendant(rootRef.current, node.id, other.id));
             if (target) {
-                apply(moveInto(rootRef.current, node.id, target.id), 'move');
+                const moved = moveInto(rootRef.current, node.id, target.id);
+                expandAbove(moved, node.id);
+                apply(moved, 'move');
             } else if (node.id !== rootRef.current.id) {
                 // Dropped on empty canvas: the node keeps this offset from its parent and the file remembers it.
                 positionsRef.current = { ...positionsRef.current, [node.id]: { ...node.position } };
@@ -538,7 +633,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 render(rootRef.current);
             }
         },
-        [flow, apply, render, onChange],
+        [flow, apply, render, onChange, expandAbove],
     );
 
     // A grip released over a node moves the grip's node under it; anywhere else nothing changes.
@@ -549,10 +644,12 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
             const from = connection.fromNode?.id;
             const to = over?.dataset.id ?? connection.toNode?.id;
             if (from && to) {
-                apply(moveInto(rootRef.current, from, to), 'move');
+                const moved = moveInto(rootRef.current, from, to);
+                expandAbove(moved, from);
+                apply(moved, 'move');
             }
         },
-        [apply],
+        [apply, expandAbove],
     );
 
     const onKeyDown = useCallback(
@@ -580,6 +677,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 case 'Tab': {
                     event.preventDefault();
                     const added = addChild(root, id);
+                    expandAbove(added.root, added.id);
                     apply(added.root, 'addChild');
                     startEditing(added.id);
                     break;
@@ -597,6 +695,12 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                     selectedId.current = null;
                     apply(remove(root, id), 'remove');
                     break;
+                case ' ':
+                    event.preventDefault();
+                    if (id !== root.id && (findNode(root, id)?.children.length ?? 0) > 0) {
+                        toggle(id);
+                    }
+                    break;
                 case 'ArrowUp':
                 case 'ArrowDown':
                     if (event.altKey) {
@@ -606,7 +710,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                     break;
             }
         },
-        [editingId, apply, restore, startEditing],
+        [editingId, apply, restore, startEditing, expandAbove, toggle],
     );
 
     // `nodes` changes every time the tree is rendered, so the matches follow edits.
@@ -662,6 +766,8 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 panOnScroll
                 panOnScrollSpeed={1}
                 deleteKeyCode={null}
+                // Space collapses and expands the selected node; dragging the canvas still pans.
+                panActivationKeyCode={null}
                 selectionKeyCode={null}
                 multiSelectionKeyCode={null}
                 edgesFocusable={false}

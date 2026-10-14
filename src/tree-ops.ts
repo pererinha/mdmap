@@ -38,6 +38,30 @@ export function isDescendant(root: PlainNode, ancestorId: string, id: string): b
     return !!ancestor && ancestor.id !== id && !!findNode(ancestor, id);
 }
 
+/** Ids from the root down to the node's parent; empty for the root and for a node not in the tree. */
+export function ancestorIds(root: PlainNode, id: string): string[] {
+    for (const child of root.children) {
+        if (child.id === id) {
+            return [root.id];
+        }
+        const below = ancestorIds(child, id);
+        if (below.length > 0) {
+            return [root.id, ...below];
+        }
+    }
+    return [];
+}
+
+/** How many nodes are under the node. */
+export function countDescendants(node: PlainNode): number {
+    return node.children.reduce((sum, child) => sum + 1 + countDescendants(child), 0);
+}
+
+/** The tree as the map shows it: the nodes in `collapsed` keep no children. */
+export function withoutCollapsed(root: PlainNode, collapsed: ReadonlySet<string>): PlainNode {
+    return { ...root, children: collapsed.has(root.id) ? [] : root.children.map(child => withoutCollapsed(child, collapsed)) };
+}
+
 /** Ids of the nodes whose title or paragraph text contains `query`, ignoring case, in document order. */
 export function searchNodes(root: PlainNode, query: string): string[] {
     const needle = query.trim().toLowerCase();

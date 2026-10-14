@@ -1,7 +1,7 @@
 import { ItemView, MarkdownView, Menu, Notice, Scope, TFile, ViewStateResult, WorkspaceLeaf } from 'obsidian';
 import { createRoot, Root } from 'react-dom/client';
 import { EditorSync, whenSized } from './editor-sync';
-import { ParseOptions, PlainNode, XY } from './md-tree';
+import { ParseOptions, PlainNode, XY, idsToPaths, pathsToIds } from './md-tree';
 import { MapEditor, MapEditorHandle, ResolvedMedia } from './map-editor';
 import { clearReveal, revealLine } from './reveal';
 import { MdmapSettings } from './settings';
@@ -142,6 +142,8 @@ export default class EditorView extends ItemView {
                 onOpenMedia={link => void this.app.workspace.openLinkText(link, this.filePath, true)}
                 onClickNode={id => this.reveal(id)}
                 onCopyNode={id => void this.copyNode(id)}
+                collapsed={pathsToIds(root, this.settings.collapsed[this.filePath] ?? [])}
+                onCollapse={ids => void this.saveCollapsed(ids)}
             />,
         );
         this.sync.watch();
@@ -167,6 +169,17 @@ export default class EditorView extends ItemView {
         if (id) {
             this.editor?.focus(id);
         }
+    }
+
+    /** Keeps the note's collapsed nodes in the plugin's data, by title path, for the next time the map opens. */
+    private async saveCollapsed(ids: string[]) {
+        const paths = idsToPaths(this.sync.root(), ids);
+        if (paths.length > 0) {
+            this.settings.collapsed[this.filePath] = paths;
+        } else {
+            delete this.settings.collapsed[this.filePath];
+        }
+        await this.saveSettings();
     }
 
     /** Puts the node and everything under it on the clipboard, as Markdown from the note. */

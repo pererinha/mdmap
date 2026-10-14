@@ -20,6 +20,7 @@ import type { Edge, Node } from '@xyflow/react';
 // Declares Obsidian's global createEl for the unit tests, which compile this file on its own; nothing is imported at runtime.
 import type {} from 'obsidian';
 import { NodeKind, PlainNode, XY } from './md-tree';
+import { withoutCollapsed } from './tree-ops';
 
 export const NODE_TYPE = 'md';
 
@@ -247,11 +248,18 @@ function layoutSide(root: PlainNode, branches: Branch[], side: Side, heights: Ma
 /**
  * Positions for the tree in the given layout. Nodes listed in `overrides` keep
  * the offset from their parent that the user gave them; the root is never
- * overridden. The root comes first and every parent precedes its children,
- * as React Flow requires for `parentId`.
+ * overridden. The nodes in `collapsed` are laid out without their children.
+ * The root comes first and every parent precedes its children, as React Flow
+ * requires for `parentId`.
  */
-export function layoutTree(root: PlainNode, layout: Layout = 'center', overrides: Record<string, XY> = {}): { nodes: MdFlowNode[]; edges: Edge[] } {
-    const laid = layout === 'radial' ? layoutRadial(root) : layoutTidy(root, layout);
+export function layoutTree(
+    whole: PlainNode,
+    layout: Layout = 'center',
+    overrides: Record<string, XY> = {},
+    collapsed: ReadonlySet<string> = new Set(),
+): { nodes: MdFlowNode[]; edges: Edge[] } {
+    const root = withoutCollapsed(whole, collapsed);
+    const laid = layout === 'radial' ? layoutRadial(root) : layoutTidy(root, layout, whole);
     const absolute = new Map(laid.nodes.map(node => [node.id, node]));
     const nodes: MdFlowNode[] = [];
     const visit = (plain: PlainNode, parent?: MdFlowNode) => {
@@ -293,11 +301,15 @@ export function balanceSides(branches: Branch[], heights: Map<string, number>): 
     return { right: right.sort(byIndex).map(item => item.branch), left: left.sort(byIndex).map(item => item.branch) };
 }
 
-function layoutTidy(root: PlainNode, layout: 'center' | 'right'): { nodes: MdFlowNode[]; edges: Edge[] } {
+/** `whole` is `root` with the children of collapsed nodes, which the sides are balanced on. */
+function layoutTidy(root: PlainNode, layout: 'center' | 'right', whole: PlainNode): { nodes: MdFlowNode[]; edges: Edge[] } {
     const branches: Branch[] = root.children.map((node, index) => ({ node, color: BRANCH_COLORS[index % BRANCH_COLORS.length] }));
     const heights = new Map<string, number>();
     branches.forEach(branch => blockHeights(branch.node, 1, heights));
-    const { right, left } = layout === 'right' ? { right: branches, left: [] } : balanceSides(branches, heights);
+    // Balanced on the whole tree, so collapsing a branch does not send branches to the other side.
+    const wholeHeights = new Map<string, number>();
+    whole.children.forEach(node => blockHeights(node, 1, wholeHeights));
+    const { right, left } = layout === 'right' ? { right: branches, left: [] } : balanceSides(branches, wholeHeights);
 
     const rootSize = estimateSize(root.title, 0, undefined, undefined, undefined, root.editing);
     const sides = [

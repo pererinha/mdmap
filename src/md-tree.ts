@@ -789,6 +789,21 @@ function pathsById(root: PlainNode): Map<string, string> {
     return paths;
 }
 
+/** Ids of the nodes at these title paths, for the editor. Paths that match no node are dropped. */
+export function pathsToIds(root: PlainNode, paths: string[]): string[] {
+    const wanted = new Set(paths);
+    return [...pathsById(root)].filter(([, path]) => wanted.has(path)).map(([id]) => id);
+}
+
+/** Title paths of these node ids, for the plugin's data. Ids that match no node are dropped. */
+export function idsToPaths(root: PlainNode, ids: string[]): string[] {
+    const paths = pathsById(root);
+    return ids.flatMap(id => {
+        const path = paths.get(id);
+        return path === undefined ? [] : [path];
+    });
+}
+
 /** Positions keyed by node id, for the editor. Paths that match no node are dropped. */
 export function positionsToIds(root: PlainNode, positions: Record<string, XY>): Record<string, XY> {
     const byPath = new Map<string, string>();

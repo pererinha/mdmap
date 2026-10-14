@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { headingAt, mapRoot, markdownOf, mediaLinks, nodeLines, parseMarkdown, positionsToIds, reconcile, serializeMarkdown, MdNode, PlainNode } from '../src/md-tree';
+import { headingAt, idsToPaths, mapRoot, pathsToIds, markdownOf, mediaLinks, nodeLines, parseMarkdown, positionsToIds, reconcile, serializeMarkdown, MdNode, PlainNode } from '../src/md-tree';
 
 const CANAL = [
     '# Canal',
@@ -617,6 +617,18 @@ describe('md-tree copy as Markdown', () => {
         expect(markdownOf(tree, root.id)).to.equal(NOTE.slice(0, NOTE.indexOf('\n\n%% mindmap-positions')));
         const twoTop = parseMarkdown('intro\n\n# A\n\n# B\n');
         expect(markdownOf(twoTop, mapRoot(twoTop, 'f').id)).to.equal('intro\n\n# A\n\n# B');
+    });
+});
+
+describe('md-tree collapsed nodes by title path', () => {
+    it('turns ids into title paths and back; unknown ones are dropped', () => {
+        const root = mapRoot(parseMarkdown(CANAL), 'Canal');
+        const pesquisa = root.children.find(c => c.title === 'Pesquisa')!;
+        const artigos = pesquisa.children.find(c => c.title === 'Artigos')!;
+        const paths = idsToPaths(root, [pesquisa.id, artigos.id, 'missing']);
+        expect(paths).to.deep.equal(['Pesquisa', 'Pesquisa/Artigos']);
+        const again = mapRoot(parseMarkdown(CANAL), 'Canal');
+        expect(pathsToIds(again, [...paths, 'Nowhere'])).to.deep.equal([again.children[0].id, again.children[0].children[1].id]);
     });
 });
 

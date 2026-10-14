@@ -7,6 +7,8 @@ export interface MdmapSettings {
     revealInNote: boolean;
     /** The mind map's share of the window when it opens next to the note, in percent; the note gets the rest. */
     mapWidth: number;
+    /** The collapsed nodes of each note, by the note's path, as title paths ("A/B" for B under A). */
+    collapsed: Record<string, string[]>;
 }
 
 export const DEFAULT_SETTINGS: MdmapSettings = {
@@ -14,4 +16,5 @@ export const DEFAULT_SETTINGS: MdmapSettings = {
     paragraphsAsNodes: true,
     revealInNote: true,
     mapWidth: 50,
+    collapsed: {},
 };

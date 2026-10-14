@@ -27,6 +27,17 @@ export default class MdmapPlugin extends Plugin {
             callback: () => this.copyMermaid(),
         });
         this.addSettingTab(new MdmapSettingTab(this.app, this));
+        // The collapsed nodes of a note follow it when it is renamed or moved.
+        this.registerEvent(
+            this.app.vault.on('rename', (file, oldPath) => {
+                const paths = this.settings.collapsed[oldPath];
+                if (paths) {
+                    delete this.settings.collapsed[oldPath];
+                    this.settings.collapsed[file.path] = paths;
+                    void this.saveSettings();
+                }
+            }),
+        );
     }
 
     /** The mind maps of the note focus the node of the heading the cursor is on. */

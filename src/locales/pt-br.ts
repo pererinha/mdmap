@@ -12,6 +12,8 @@ export const ptBR: Strings = {
     copiedAsMarkdown: 'Copiado como Markdown',
     grip: 'Arraste até outro nó para mover este nó para dentro dele',
     searchNodes: 'Buscar nós',
+    collapse: 'Recolher',
+    expand: 'Expandir',
     tidyTree: 'Árvore',
     centerRoot: 'Raiz no centro',
     radial: 'Radial',

@@ -121,16 +121,23 @@
 .mdmap-copy:hover {
     color: var(--text-normal);
 }
+/* Edges take no clicks: the map has no use for them, and an edge's invisible hit path lies over the fold button it leaves from. */
+.mdmap-root .react-flow__edge {
+    pointer-events: none;
+}
 .mdmap-handle {
     opacity: 0;
     pointer-events: none;
 }
 /*
- * The grip on the side the edge comes in, shown on hover and on the selected node: dragged onto another node, it
- * moves the node under it. Hidden it stays transparent rather than invisible, so its half outside the box still takes
- * the pointer and shows it to a cursor coming from outside.
+ * The grip on the side the edge comes in, and the fold button on the side the children leave from, drawn alike and
+ * shown on hover and on the selected node: dragged onto another node, either moves the node under it; a click on the
+ * fold button collapses or expands the children. Hidden they stay transparent rather than invisible, so their halves
+ * outside the box still take the pointer and show them to a cursor coming from outside. Collapsed, the fold button
+ * stays shown and widens to hold the count of nodes it hides.
  */
-.react-flow__handle.mdmap-grip {
+.react-flow__handle.mdmap-grip,
+.react-flow__handle.mdmap-fold {
     width: 12px;
     height: 12px;
     border: 2px solid var(--mdmap-branch);
@@ -139,8 +146,25 @@
 }
 .react-flow__node:hover .mdmap-grip,
 .react-flow__node.selected .mdmap-grip,
-.mdmap-grip.connectingfrom {
+.mdmap-grip.connectingfrom,
+.react-flow__node:hover .mdmap-fold,
+.react-flow__node.selected .mdmap-fold,
+.mdmap-fold.connectingfrom,
+.mdmap-fold.mdmap-collapsed {
     opacity: 1;
+}
+.react-flow__handle.mdmap-fold.mdmap-collapsed {
+    width: auto;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 3px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 10px;
+    line-height: 1;
 }
 /*
  * The label while it is edited: the same text in the same box, plus a caret.

@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import { PlainNode } from '../src/md-tree';
-import { findNode, searchNodes, setText } from '../src/tree-ops';
+import { ancestorIds, countDescendants, findNode, searchNodes, setText, withoutCollapsed } from '../src/tree-ops';
 
 const TREE: PlainNode = {
     id: 'root',
@@ -13,6 +13,25 @@ const TREE: PlainNode = {
 };
 
 describe('tree-ops', () => {
+    it('withoutCollapsed drops the children of collapsed nodes and leaves the tree untouched', () => {
+        const shown = withoutCollapsed(TREE, new Set(['a']));
+        expect(shown.children.map(c => [c.id, c.children.length])).to.deep.equal([['a', 0], ['b', 0], ['c', 0]]);
+        expect(findNode(TREE, 'a1')).to.not.equal(undefined);
+        expect(withoutCollapsed(TREE, new Set(['root'])).children).to.deep.equal([]);
+    });
+
+    it('countDescendants counts every node under the node', () => {
+        expect(countDescendants(TREE)).to.equal(4);
+        expect(countDescendants(findNode(TREE, 'a')!)).to.equal(1);
+        expect(countDescendants(findNode(TREE, 'c')!)).to.equal(0);
+    });
+
+    it('ancestorIds goes from the root to the parent', () => {
+        expect(ancestorIds(TREE, 'a1')).to.deep.equal(['root', 'a']);
+        expect(ancestorIds(TREE, 'root')).to.deep.equal([]);
+        expect(ancestorIds(TREE, 'missing')).to.deep.equal([]);
+    });
+
     it('searchNodes finds titles and paragraph text, ignoring case, in document order', () => {
         expect(searchNodes(TREE, 'comment')).to.deep.equal(['a', 'a1', 'b']);
         expect(searchNodes(TREE, '  BUDGET ')).to.deep.equal(['c']);

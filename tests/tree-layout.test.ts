@@ -3,6 +3,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { PlainNode, XY, mapRoot, parseMarkdown } from '../src/md-tree';
 import { GAP_Y, Layout, MdFlowNode, layoutTree } from '../src/tree-layout';
+import { countDescendants } from '../src/tree-ops';
 
 const CANAL = [
     '# Canal',
@@ -149,6 +150,22 @@ describe('tree-layout on real notes', () => {
         for (const layout of LAYOUTS) {
             it(`${name}, ${layout}: no two node boxes overlap`, () => {
                 expect(overlapping(boxes(layoutTree(root, layout).nodes))).to.deep.equal([]);
+            });
+
+            it(`${name}, ${layout}: a collapsed branch lays out without its nodes, and no boxes overlap`, () => {
+                const branch = root.children.find(child => child.children.length > 0)!;
+                const nodes = layoutTree(root, layout, {}, new Set([branch.id])).nodes;
+                expect(nodes.length).to.equal(layoutTree(root, layout).nodes.length - countDescendants(branch));
+                expect(nodes.some(node => node.id === branch.id)).to.equal(true);
+                expect(nodes.filter(node => node.parentId === branch.id)).to.deep.equal([]);
+                expect(overlapping(boxes(nodes))).to.deep.equal([]);
+            });
+
+            it(`${name}, ${layout}: collapsing a branch leaves every top-level branch on its side`, () => {
+                const side = (nodes: MdFlowNode[]) => root.children.map(child => nodes.find(node => node.id === child.id)!.data.side);
+                for (const branch of root.children.filter(child => child.children.length > 0)) {
+                    expect(side(layoutTree(root, layout, {}, new Set([branch.id])).nodes)).to.deep.equal(side(layoutTree(root, layout).nodes));
+                }
             });
         }
 

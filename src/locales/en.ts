@@ -11,6 +11,8 @@ export const en = {
     copiedAsMarkdown: 'Copied as Markdown',
     grip: 'Drag onto another node to move this node under it',
     searchNodes: 'Search nodes',
+    collapse: 'Collapse',
+    expand: 'Expand',
     tidyTree: 'Tidy tree',
     centerRoot: 'Center root',
     radial: 'Radial',
