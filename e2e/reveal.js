@@ -1,5 +1,5 @@
 // Clicking a node shows it in the note: the note scrolls to the node's line and highlights it while the map keeps
-// the focus; a click on empty canvas clears it; the gear in the view header turns it off and on; reading mode scrolls.
+// the focus; a click on empty canvas clears it; the map's gear turns it off and on; reading mode scrolls.
 const { connect, sleep, reloadPlugin, openEditor, clickNode, md, shot } = require('./lib');
 
 const FILE = 'Reveal-e2e.md';
@@ -28,29 +28,20 @@ function check(label, state, expected) {
   console.log(`${label}: ${JSON.stringify(state)} | ok: ${ok && state.focusInMap}`);
 }
 
-/**
- * Opens the gear menu in the map's header and clicks the toggle; returns the saved setting. On macOS Obsidian may
- * draw menus natively, outside the page, so the scenario switches to in-page menus for the click and back after.
- */
+/** Opens the settings under the map's gear, clicks the toggle and closes them; returns the saved setting. */
 async function toggleFromGear(page) {
-  const native = await page.evaluate(() => {
-    const previous = app.vault.getConfig('nativeMenus');
-    app.vault.setConfig('nativeMenus', false);
-    return previous;
-  });
-  await page.evaluate(() => {
-    const leaf = app.workspace.getLeavesOfType('mdmap')[0];
-    leaf.view.containerEl.querySelector('.view-action[aria-label="Mind map settings"]').click();
-  });
-  await sleep(300);
-  const item = await page.evaluate(() => {
-    const el = Array.from(document.querySelectorAll('.menu .menu-item')).find(i => i.textContent.includes('Show clicked node in the note'));
-    const checked = el.classList.contains('mod-checked') || !!el.querySelector('.menu-item-icon svg');
-    el.click();
-    return { found: !!el, checkedBefore: checked };
+  const item = await page.evaluate(async () => {
+    const host = app.workspace.getLeavesOfType('mdmap')[0].view.containerEl;
+    host.querySelector('.mdmap-settings-button').click();
+    await new Promise(r => setTimeout(r, 300));
+    const label = Array.from(host.querySelectorAll('.mdmap-settings label')).find(l => l.textContent.includes('Show clicked node in the note'));
+    const input = label?.querySelector('input');
+    const checkedBefore = !!input?.checked;
+    input?.click();
+    host.querySelector('.mdmap-settings-button').click();
+    return { found: !!input, checkedBefore };
   });
   await sleep(500);
-  await page.evaluate(previous => app.vault.setConfig('nativeMenus', previous), native);
   const saved = await page.evaluate(async () => JSON.parse(await app.vault.adapter.read('.obsidian/plugins/mdmap/data.json')).revealInNote);
   return { ...item, saved };
 }

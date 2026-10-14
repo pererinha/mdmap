@@ -1,7 +1,7 @@
 // Paragraphs as nodes: paragraphs that follow one another are one block of wrapped text that stays inside its
 // box, "Regras das falas:" carries the rules as its children, Tab on a paragraph writes a list item right under
-// it, undo restores the note, clicking a block highlights its first line in the note, and "Show paragraphs" in the
-// gear menu hides and shows the paragraph nodes in the same map, without writing the note.
+// it, undo restores the note, clicking a block highlights its first line in the note, and "Show paragraphs" under
+// the map's gear hides and shows the paragraph nodes in the same map, without writing the note.
 const { connect, sleep, reloadPlugin, openEditor, clickNode, md, shot, view } = require('./lib');
 
 const FILE = 'Paragraphs-e2e.md';
@@ -27,16 +27,11 @@ const NOTE = [
 ].join('\n');
 
 /**
- * Clicks "Show paragraphs" in the gear menu of the map's header, with in-page menus as in reveal.js; returns the
- * saved setting, and whether in any frame of the next second the map was replaced or its viewport moved.
+ * Clicks "Show paragraphs" under the map's gear and closes the settings; returns the saved setting, and whether in
+ * any frame of the next second the map was replaced or its viewport moved.
  */
 async function showParagraphs(page) {
-  const native = await page.evaluate(() => {
-    const previous = app.vault.getConfig('nativeMenus');
-    app.vault.setConfig('nativeMenus', false);
-    return previous;
-  });
-  await page.evaluate(() => app.workspace.getLeavesOfType('mdmap')[0].view.containerEl.querySelector('.view-action[aria-label="Mind map settings"]').click());
+  await page.evaluate(() => app.workspace.getLeavesOfType('mdmap')[0].view.containerEl.querySelector('.mdmap-settings-button').click());
   await sleep(300);
   const item = await page.evaluate(() => new Promise(resolve => {
     const host = app.workspace.getLeavesOfType('mdmap')[0].view.containerEl;
@@ -45,19 +40,20 @@ async function showParagraphs(page) {
     const before = viewport();
     let replaced = false;
     let moved = false;
-    const el = Array.from(document.querySelectorAll('.menu .menu-item')).find(i => i.textContent.includes('Show paragraphs'));
-    el?.click();
+    const label = Array.from(host.querySelectorAll('.mdmap-settings label')).find(l => l.textContent.includes('Show paragraphs'));
+    const input = label?.querySelector('input');
+    input?.click();
     const t0 = performance.now();
     const frame = () => {
       replaced ||= host.querySelector('.react-flow') !== map;
       moved ||= viewport() !== before;
       if (performance.now() - t0 < 1000) requestAnimationFrame(frame);
-      else resolve({ found: !!el, disabled: !!el?.classList.contains('is-disabled'), replaced, moved });
+      else resolve({ found: !!input, disabled: !!input?.disabled, replaced, moved });
     };
     requestAnimationFrame(frame);
   }));
+  await page.evaluate(() => app.workspace.getLeavesOfType('mdmap')[0].view.containerEl.querySelector('.mdmap-settings-button').click());
   await sleep(500);
-  await page.evaluate(previous => app.vault.setConfig('nativeMenus', previous), native);
   const saved = await page.evaluate(async () => JSON.parse(await app.vault.adapter.read('.obsidian/plugins/mdmap/data.json')).paragraphsAsNodes);
   return { ...item, saved };
 }

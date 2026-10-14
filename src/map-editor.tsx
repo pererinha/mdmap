@@ -34,6 +34,8 @@ import { setIcon } from 'obsidian';
 import { PlainNode, XY } from './md-tree';
 import { Facing, Layout, MdNodeData, NODE_TYPE, layoutTree } from './tree-layout';
 import { t } from './i18n';
+import { MdmapSettings } from './settings';
+import { SettingsActions, SettingsPanel } from './settings-panel';
 import { addChild, addSiblingAfter, ancestorIds, countDescendants, findNode, isDescendant, moveInto, moveSibling, remove, searchNodes, setText } from './tree-ops';
 
 export interface ResolvedMedia {
@@ -74,6 +76,9 @@ interface MapEditorProps {
     collapsed?: string[];
     /** The nodes whose children are hidden, after every change. */
     onCollapse?: (ids: string[]) => void;
+    /** What the gear at the top-right shows and changes. */
+    settings: MdmapSettings;
+    settingsActions: SettingsActions;
 }
 
 interface EditorNodeData extends MdNodeData {
@@ -295,7 +300,7 @@ const ORGANIZERS: Array<{ layout: Layout; label: string; icon: string }> = [
     { layout: 'radial', label: t('radial'), icon: 'orbit' },
 ];
 
-function Editor({ root: initialRoot, positions: initialPositions, onChange, onReady, resolveMedia, onOpenMedia, onClickNode, onCopyNode, collapsed: initialCollapsed, onCollapse }: MapEditorProps) {
+function Editor({ root: initialRoot, positions: initialPositions, onChange, onReady, resolveMedia, onOpenMedia, onClickNode, onCopyNode, collapsed: initialCollapsed, onCollapse, settings, settingsActions }: MapEditorProps) {
     const flow = useReactFlow<EditorNode>();
     const rootRef = useRef(initialRoot);
     const positionsRef = useRef<Record<string, XY>>(initialPositions ?? {});
@@ -319,6 +324,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
     const collapsed = useRef<ReadonlySet<string>>(new Set(initialCollapsed));
     /** A node that focus() expanded the map to show; it is centered once it is measured. */
     const pendingFocus = useRef<string | null>(null);
+    const [settingsOpen, setSettingsOpen] = useState(false);
 
     const stopAnimation = useCallback(() => {
         if (animation.current !== null) {
@@ -767,7 +773,10 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 onEdgesChange={onEdgesChange}
                 onSelectionChange={onSelectionChange}
                 onNodeClick={(_event, node) => onClickNode?.(node.id)}
-                onPaneClick={() => onClickNode?.(null)}
+                onPaneClick={() => {
+                    setSettingsOpen(false);
+                    onClickNode?.(null);
+                }}
                 onNodeDoubleClick={(event, node) => startEditing(node.id, { x: event.clientX, y: event.clientY })}
                 onNodeDragStart={onNodeDragStart}
                 onNodeDragStop={onNodeDragStop}
@@ -828,6 +837,17 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                             </button>
                         ))}
                     </span>
+                    <SettingsPanel
+                        settings={settings}
+                        actions={settingsActions}
+                        open={settingsOpen}
+                        onOpenChange={open => {
+                            setSettingsOpen(open);
+                            if (!open) {
+                                containerRef.current?.focus();
+                            }
+                        }}
+                    />
                 </Panel>
             </ReactFlow>
         </div>

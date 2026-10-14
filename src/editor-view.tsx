@@ -1,4 +1,4 @@
-import { ItemView, MarkdownView, Menu, Notice, Scope, TFile, ViewStateResult, WorkspaceLeaf } from 'obsidian';
+import { ItemView, MarkdownView, Notice, Scope, TFile, ViewStateResult, WorkspaceLeaf } from 'obsidian';
 import { createRoot, Root } from 'react-dom/client';
 import { EditorSync, whenSized } from './editor-sync';
 import { FoldedLine, noteFolds, setNoteFolds } from './fold-sync';
@@ -6,6 +6,7 @@ import { ParseOptions, PlainNode, XY, idsToPaths, pathsToIds } from './md-tree';
 import { MapEditor, MapEditorHandle, ResolvedMedia } from './map-editor';
 import { clearReveal, revealLine } from './reveal';
 import { MdmapSettings, colorProps } from './settings';
+import { SettingsActions } from './settings-panel';
 import { t } from './i18n';
 
 export const VIEW_TYPE = 'mdmap';
@@ -59,7 +60,6 @@ export default class EditorView extends ItemView {
         this.registerEvent(this.app.workspace.on('resize', () => this.editor?.fit()));
         // Switching between the light and the dark theme changes the CSS, and the map takes that theme's picked colours.
         this.registerEvent(this.app.workspace.on('css-change', () => this.applyColors()));
-        this.addAction('settings', t('viewSettings'), evt => this.showSettings(evt));
         // Cmd/Ctrl+F while the map has focus goes to its search field instead of Obsidian's file search.
         this.scope = new Scope(this.app.scope);
         this.scope.register(['Mod'], 'f', () => {
@@ -68,38 +68,35 @@ export default class EditorView extends ItemView {
         });
     }
 
-    /** The view's own settings, as a menu of toggles under the gear in the view header. */
-    private showSettings(evt: MouseEvent) {
-        new Menu()
-            .addItem(item =>
-                item
-                    .setTitle(t('showClickedNode'))
-                    .setChecked(this.settings.revealInNote)
-                    .onClick(async () => {
-                        this.settings.revealInNote = !this.settings.revealInNote;
-                        await this.saveSettings();
-                        if (!this.settings.revealInNote) {
-                            this.reveal(null);
-                        }
-                    }),
-            )
-            .addItem(item =>
-                item
-                    .setTitle(t('showParagraphs'))
-                    .setChecked(this.settings.paragraphsAsNodes)
-                    // Without list items as nodes, paragraphs are never nodes.
-                    .setDisabled(!this.settings.listItemsAsNodes)
-                    .onClick(async () => {
-                        this.settings.paragraphsAsNodes = !this.settings.paragraphsAsNodes;
-                        await this.saveSettings();
-                        for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
-                            if (leaf.view instanceof EditorView) {
-                                leaf.view.reparse();
-                            }
-                        }
-                    }),
-            )
-            .showAtMouseEvent(evt);
+    /** The settings under the gear in the map: each change is saved, and paragraphs and colours change on every open map. */
+    private settingsActions(): SettingsActions {
+        return {
+            toggleReveal: () => {
+                this.settings.revealInNote = !this.settings.revealInNote;
+                void this.saveSettings();
+                if (!this.settings.revealInNote) {
+                    this.reveal(null);
+                }
+            },
+            toggleParagraphs: () => {
+                this.settings.paragraphsAsNodes = !this.settings.paragraphsAsNodes;
+                void this.saveSettings();
+                this.forEachMap(view => view.reparse());
+            },
+            setColors: colors => {
+                this.settings.colors = colors;
+                void this.saveSettings();
+                this.forEachMap(view => view.applyColors());
+            },
+        };
+    }
+
+    private forEachMap(fn: (view: EditorView) => void) {
+        for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
+            if (leaf.view instanceof EditorView) {
+                fn(leaf.view);
+            }
+        }
     }
 
     /**
@@ -171,6 +168,8 @@ export default class EditorView extends ItemView {
                 onCopyNode={id => void this.copyNode(id)}
                 collapsed={this.collapsed}
                 onCollapse={ids => void this.saveCollapsed(ids)}
+                settings={this.settings}
+                settingsActions={this.settingsActions()}
             />,
         );
         this.sync.watch();

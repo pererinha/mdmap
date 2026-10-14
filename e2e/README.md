@@ -32,18 +32,19 @@ node e2e/lists.js      # list items as nodes, and the setting that turns them of
 node e2e/positions.js  # free positions, the positions block, Tidy / Center / Radial; edges behind the boxes, a dragged box over them
 node e2e/story.js      # story.md in light and dark theme, thumbnails, attribution, no write
 node e2e/organize.js   # organizer buttons on story.md: transition sampled over time, overlaps, drag follows the pointer
-node e2e/reveal.js     # clicking a node highlights its line in the note; the gear in the view header turns it off
+node e2e/reveal.js     # clicking a node highlights its line in the note; the map's gear turns it off
 node e2e/trackpad.js   # two-finger scroll pans one to one, pinch zooms around the fingers, the window does not zoom
 node e2e/paragraphs.js # paragraphs that follow one another as one text block, a list hanging from the paragraph before it, Tab and undo on it, the gear's "Show paragraphs"
 node e2e/copy.js       # the copy icon on a node puts its Markdown section on the clipboard (saved and restored)
 node e2e/grip.js       # the grip shows when the pointer reaches it, also from outside the box; dragged onto another node it moves its node there; Cmd+Z
-node e2e/i18n.js       # with Obsidian in Brazilian Portuguese, commands, buttons, search and gear menu are in Portuguese; the language is put back
+node e2e/i18n.js       # with Obsidian in Brazilian Portuguese, commands, buttons, search and the settings under the gear are in Portuguese; the language is put back
 node e2e/width.js      # the map opens at the "Mind map width" share (30 %, 70 %), half and half without Obsidian's setDimension; the slider in the settings
 node e2e/collapse.js   # Space and the fold button collapse and expand a node, the count of hidden nodes, kept on reopening; search and Tab expand; the note is not written
 node e2e/folds.js      # folding a heading or list item in the note collapses its node and back; the note's folds win when the map opens
 node e2e/focus.js      # the cursor on a heading in the note selects and centers its node; the keyboard stays in the note
 node e2e/search.js     # Cmd/Ctrl+F, highlighted matches, Enter / Shift+Enter center them, Escape; Cmd/Ctrl+F in the note is Obsidian's
 node e2e/editing.js    # editing in place: same look, caret where clicked, the box grows, Enter / Escape, long titles, a paragraph edited whole
+node e2e/colors.js     # the gear's colours on a note with 13 top-level branches: a tab per theme with the centre and the palette; the centre opens a bar with its text colour, a palette colour one with its lighter shades, which branches past the sixth take, a new branch too; Edit; hex typed or picked reaches the open map in its theme only; kept on reload; "Use theme colors"; Escape and a canvas click close; the colours saved before are put back
 ```
 
 The scenarios create, rewrite and delete notes, so they stop unless the

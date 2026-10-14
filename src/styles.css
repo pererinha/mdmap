@@ -205,7 +205,10 @@
     display: flex;
     gap: 4px;
 }
-/* The layout buttons as one group, each an icon and its name; two classes in each selector, to win over Obsidian's own button look. */
+/*
+ * The layout buttons as one group, each an icon and its name, and the gear next to them in the same frame. Two
+ * classes in each selector, to win over Obsidian's own button look.
+ */
 .mdmap-organizers {
     display: inline-flex;
     gap: 2px;
@@ -234,9 +237,28 @@
 .mdmap-organize-icon {
     display: flex;
 }
-.mdmap-organize-icon svg {
+.mdmap-organize-icon svg,
+.mdmap-settings-button svg {
     width: 14px;
     height: 14px;
+}
+.mdmap-panel .mdmap-settings-button {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-m);
+    color: var(--text-muted);
+    background: var(--background-primary);
+    box-shadow: var(--shadow-s);
+}
+.mdmap-panel .mdmap-settings-button:hover,
+.mdmap-panel .mdmap-settings-button[aria-expanded='true'] {
+    color: var(--text-normal);
+    background: var(--background-modifier-hover);
 }
 /* On a narrow map, a phone's, the layout buttons show only their icons; the name stays in their aria-label. */
 @container (max-width: 520px) {
@@ -245,6 +267,235 @@
     }
     .mdmap-organizers .mdmap-organize {
         padding: 0 8px;
+    }
+}
+/* The settings under the gear: a fixed width no wider than the buttons above, so the panel stays inside the map and keeps its size. */
+.mdmap-settings {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    width: 232px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    font-size: var(--font-ui-small);
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-l);
+    box-shadow: var(--shadow-l);
+    animation: mdmap-settings-in 180ms ease-out;
+}
+@keyframes mdmap-settings-in {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+}
+/* A view toggle: the whole row toggles Obsidian's own switch. */
+.mdmap-setting {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: var(--cursor);
+}
+.mdmap-setting > span:first-child {
+    flex: 1;
+    text-wrap: pretty;
+}
+.mdmap-setting .checkbox-container:has(input:focus-visible) {
+    outline: 2px solid var(--background-modifier-border-focus);
+}
+.mdmap-colors-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 10px;
+    border-top: 1px solid var(--background-modifier-border);
+    font-size: var(--font-ui-smaller);
+    font-weight: var(--font-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+/* Light / Dark, as a segmented control. */
+.mdmap-tabs {
+    display: inline-flex;
+    padding: 2px;
+    border-radius: var(--radius-s);
+    background: var(--background-modifier-hover);
+    letter-spacing: normal;
+    text-transform: none;
+}
+.mdmap-tabs button {
+    height: auto;
+    padding: 2px 10px;
+    font-size: var(--font-ui-smaller);
+    background: transparent;
+    box-shadow: none;
+    color: var(--text-muted);
+}
+.mdmap-tabs button.is-active {
+    background: var(--background-primary);
+    box-shadow: var(--shadow-s);
+    color: var(--text-normal);
+}
+/* The centre, set apart, then one swatch per top-level branch, wrapping onto more rows on a note with many. */
+.mdmap-swatches {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+.mdmap-settings .mdmap-swatch,
+.mdmap-settings .mdmap-swatch:hover {
+    width: 20px;
+    height: 20px;
+    min-height: 0;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--background-modifier-border);
+    box-shadow: none;
+    background-color: var(--mdmap-swatch);
+    transition: transform 150ms ease-out, background-color 200ms ease-out;
+}
+.mdmap-settings .mdmap-swatch:hover {
+    transform: scale(1.12);
+}
+.mdmap-settings .mdmap-swatch-root,
+.mdmap-settings .mdmap-swatch-root:hover {
+    width: 26px;
+    height: 26px;
+    margin-right: 6px;
+}
+.mdmap-settings .mdmap-swatch.is-selected {
+    outline: 2px solid var(--text-normal);
+    outline-offset: 2px;
+}
+.mdmap-settings .mdmap-swatch:focus-visible {
+    box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
+}
+/* A palette colour's lighter shades, in a bar that drops from it; a notch under the colour points into the bar. */
+.mdmap-shades {
+    display: flex;
+    gap: 6px;
+    padding: 6px 8px;
+    border-radius: var(--radius-m);
+    background: var(--background-modifier-hover);
+    animation: mdmap-shades-in 150ms ease-out;
+}
+@keyframes mdmap-shades-in {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+}
+.mdmap-settings .mdmap-swatch.is-parent {
+    position: relative;
+}
+/* The swatch's bottom is 3px above its row's, which is the panel's 10px gap above the bar: a 6px notch 7px below it touches the bar. */
+.mdmap-settings .mdmap-swatch.is-parent::after {
+    content: '';
+    position: absolute;
+    top: calc(100% + 7px);
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top: 0;
+    border-bottom-color: var(--background-modifier-hover);
+}
+/* Wider on a phone or tablet, where Obsidian's fields are bigger, but never wider than the map; bigger swatches for a finger. */
+.is-mobile .mdmap-settings {
+    width: min(300px, calc(100cqw - 32px));
+}
+.is-mobile .mdmap-swatches,
+.is-mobile .mdmap-shades {
+    gap: 8px;
+}
+.is-mobile .mdmap-settings .mdmap-swatch {
+    width: 28px;
+    height: 28px;
+}
+.is-mobile .mdmap-settings .mdmap-swatch-root {
+    width: 34px;
+    height: 34px;
+}
+/* The centre's text: "Aa" in its colour on the centre's colour. */
+.mdmap-settings .mdmap-swatch-text,
+.mdmap-settings .mdmap-swatch-text:hover,
+.is-mobile .mdmap-settings .mdmap-swatch-text {
+    width: auto;
+    padding: 0 10px;
+    border-radius: var(--radius-s);
+    font-size: var(--font-ui-smaller);
+    font-weight: var(--font-semibold);
+}
+/* The centre fills its row, so its notch starts 4px below it to touch the bar. */
+.mdmap-settings .mdmap-swatch-root.is-parent::after {
+    top: calc(100% + 4px);
+}
+.mdmap-colors-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.mdmap-colors-actions button {
+    height: auto;
+    padding: 3px 10px;
+    font-size: var(--font-ui-smaller);
+}
+.mdmap-colors-actions .mdmap-reset {
+    background: transparent;
+    box-shadow: none;
+    color: var(--text-muted);
+}
+.mdmap-colors-actions .mdmap-reset:hover {
+    color: var(--text-normal);
+}
+.mdmap-colors-actions .mdmap-reset:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+/* The selected colour: what it is, then the colour picker and its hex, usable with Edit on. */
+.mdmap-color-editor {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.mdmap-color-editor span {
+    flex: 1;
+    white-space: nowrap;
+    color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
+}
+/* Obsidian stretches text fields on a phone; the hex keeps its own width. */
+.is-mobile .mdmap-color-editor .mdmap-color-hex {
+    flex: none;
+    width: 96px;
+}
+.mdmap-color-editor input[type='color'] {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+}
+.mdmap-color-hex {
+    width: 76px;
+    font-family: var(--font-monospace);
+    font-size: var(--font-ui-smaller);
+}
+.mdmap-color-editor input:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+@media (prefers-reduced-motion: reduce) {
+    .mdmap-settings,
+    .mdmap-shades,
+    .mdmap-settings .mdmap-swatch {
+        animation: none;
+        transition: none;
+    }
+    .mdmap-settings .mdmap-swatch:hover {
+        transform: none;
     }
 }
 /* Search field at the top-left of the map, followed by "current/matches". */
