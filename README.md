@@ -23,12 +23,20 @@ is no separate mind map file.
   node without overlaps.
 - **From the map to the note and back.** Click a node to highlight its line
   in the note; put the cursor on a heading in the note to select its node.
+- **Collapse and expand.** Hide the nodes under a node and show them again.
+  Collapsing a heading or a list item folds it in the note, and folding it in
+  the note collapses the node. The map remembers each note's collapsed nodes.
+- **Colors.** Change the colors of the center, its text, the branches and the
+  levels under each branch, separately for the light and the dark theme.
+  Until you do, the map follows Obsidian's theme.
 - **Search.** Type in the field at the top of the map, or press Cmd+F, to
   highlight the nodes that contain the text and jump from one to the next.
 - **Copy a branch as Markdown**, exactly as it is written in the note.
 - **Mermaid export.** Copy the whole note as a Mermaid `mindmap` block.
 - **Images and videos** embedded in the note are shown inside their node.
 - **Undo and redo** for changes made in the map.
+- **In Obsidian's language.** Brazilian Portuguese is the first translation;
+  other languages show English.
 
 ## How it works
 
@@ -86,15 +94,16 @@ gets it as a nested item:
 
 ## Install
 
-The plugin is not in the community directory yet. To install it manually:
-
-1. Download `main.js`, `manifest.json` and `styles.css` from a
-   [release](https://github.com/pererinha/mdmap/releases) into
-   `<vault>/.obsidian/plugins/mdmap/`, or build them from the source code
-   directly into the vault (see [Development](#development)).
-2. Turn on *mdmap* in **Settings → Community plugins**.
-3. Open a note and run **Edit current note as mind map** from the command
+1. In Obsidian, open **Settings → Community plugins**, select **Browse**,
+   search for *mdmap* and select **Install**, then **Enable**.
+2. Open a note and run **Edit current note as mind map** from the command
    palette. The map opens next to the note.
+
+To install it by hand, download `main.js`, `manifest.json` and `styles.css`
+from a [release](https://github.com/pererinha/mdmap/releases) into
+`<vault>/.obsidian/plugins/mdmap/`, or build them from the source code
+directly into the vault (see [Development](#development)), and turn on
+*mdmap* in **Settings → Community plugins**.
 
 ## Keyboard and mouse
 
@@ -105,7 +114,8 @@ The plugin is not in the community directory yet. To install it manually:
 | Add a sibling | Enter |
 | Delete | Delete or Backspace |
 | Move up or down among siblings | Alt+Up / Alt+Down |
-| Move to another parent | Drag the node onto the new parent |
+| Move to another parent | Drag the node, or the dot on the side its edge comes in, onto the new parent |
+| Collapse or expand the nodes under a node | Space on the selected node, or click the dot on the side its children leave from |
 | Place a node anywhere | Drag the node to an empty part of the map; the nodes under it move with it |
 | Copy a node and the nodes under it as Markdown | Hover over the node and click the copy icon in its corner |
 | Undo / redo | Cmd+Z / Cmd+Shift+Z (Ctrl on Windows and Linux) |
@@ -118,13 +128,29 @@ the clipboard as a Mermaid `mindmap` block.
 
 ## Settings and details
 
-**List items and paragraphs as nodes** (on by default, in *Settings →
-mdmap*). When it is off, only headings are nodes, and list items and
-paragraphs belong to the heading above them. The change applies the next
-time you open a mind map.
+**Settings.** The gear next to the layout buttons in the map has *Show
+paragraphs*, *Show clicked node in the note* and the colors. *Settings →
+mdmap* has them too, and two more.
 
-**Show clicked node in the note** (on by default, in the gear menu of the
-map's header). When it is off, clicking a node only selects it in the map.
+- **List items and paragraphs as nodes** (on by default, only in *Settings →
+  mdmap*). When it is off, only headings are nodes, and list items and
+  paragraphs belong to the heading above them. The change applies the next
+  time you open a mind map.
+- **Show paragraphs** (on by default). When it is off, paragraphs are not
+  nodes and their text stays in the heading above them; the note does not
+  change. It needs *List items and paragraphs as nodes*.
+- **Show clicked node in the note** (on by default). When it is off,
+  clicking a node only selects it in the map.
+- **Mind map width** (50 % by default, only in *Settings → mdmap*). The
+  map's share of the window, from 20 to 80 %, when it opens next to the note.
+- **Colors.** One tab for the light theme and one for the dark theme, each
+  with the center and six palette colors, which the top-level branches take
+  in turn; after the sixth they start over, 25 % closer to white each round.
+  Click the center to see the color of its text, or a palette color to see
+  its three shades: the branch's children take the first, their children the
+  second, and every level further down the third. *Edit* unlocks a color
+  picker and a field for the hex; *Use theme colors* goes back to the
+  theme's.
 
 **Where positions are saved.** When you drag a node to an empty part of the
 map, the plugin adds a comment block at the end of the note:
@@ -158,7 +184,7 @@ git clone https://github.com/pererinha/mdmap.git
 cd mdmap
 npm install
 npm run build     # builds main.js and styles.css; with MDMAP_VAULT=/path/to/vault it also copies the plugin into that vault
-npm test          # unit tests for reading and writing Markdown, the layouts and the Mermaid export
+npm test          # unit tests for reading and writing Markdown, the layouts, the Mermaid export, the colors and the translations
 ```
 
 To run tests in a real Obsidian app, see [e2e/README.md](e2e/README.md).
