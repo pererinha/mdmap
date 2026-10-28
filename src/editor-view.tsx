@@ -59,7 +59,6 @@ export default class EditorView extends ItemView {
         this.contentEl.addClass('mdmap-content');
         this.applyColors();
         this.host = this.contentEl.createDiv({ cls: 'mdmap-host' });
-        this.registerEvent(this.app.workspace.on('resize', () => this.editor?.fit()));
         // Switching between the light and the dark theme changes the CSS, and the map takes that theme's picked colours.
         this.registerEvent(this.app.workspace.on('css-change', () => this.applyColors()));
         // Cmd/Ctrl+F while the map has focus goes to its search field instead of Obsidian's file search.
