@@ -28,9 +28,14 @@
  *
  *     %% mindmap-positions
  *     Heading A/Sub B: 120,-40
+ *     view 312,-85
  *     %%
  *
- * The block is written only while at least one node has a position.
+ * The `view` line is the map point at the center of the view where the user
+ * left the map, so the map opens there again. A node's line always has ": "
+ * before its numbers and the view line never does, so a node titled "view"
+ * stays a node. The block is written only while a node has a position or the
+ * view has a point.
  *
  * Blank lines that separate sections are stored on the node that follows
  * them (`gapBefore`), except for a parent's first child, whose gap is stored
@@ -73,6 +78,8 @@ export interface MdTree {
     positions: Record<string, XY>;
     /** Blank lines before the positions block. */
     positionsGap: number;
+    /** The map point at the center of the view where the user left the map; undefined means no view line in the file. */
+    view?: XY;
 }
 
 export interface XY {
@@ -83,6 +90,7 @@ export interface XY {
 const POSITIONS_START = '%% mindmap-positions';
 const POSITIONS_END = '%%';
 const POSITION_LINE_RE = /^(.*): (-?\d+),(-?\d+)$/;
+const VIEW_LINE_RE = /^view (-?\d+),(-?\d+)$/;
 
 /** Engine-agnostic shape the views exchange with the editor libraries. */
 export interface PlainNode {
@@ -213,15 +221,21 @@ function extractPositions(tree: MdTree, lines: string[]): void {
     }
     const entries = lines.slice(start + 1, lines.length - 1);
     const positions: Record<string, XY> = {};
+    let view: XY | undefined;
     for (const entry of entries) {
         const match = entry.match(POSITION_LINE_RE);
-        if (!match) {
+        const viewMatch = match ? null : entry.match(VIEW_LINE_RE);
+        if (match) {
+            positions[match[1]] = { x: Number(match[2]), y: Number(match[3]) };
+        } else if (viewMatch) {
+            view = { x: Number(viewMatch[1]), y: Number(viewMatch[2]) };
+        } else {
             return; // not our block; leave it as body
         }
-        positions[match[1]] = { x: Number(match[2]), y: Number(match[3]) };
     }
     lines.splice(start);
     tree.positions = positions;
+    tree.view = view;
     tree.positionsGap = trimTrailingBlanks(lines);
 }
 
@@ -499,13 +513,16 @@ function writeLines(tree: MdTree): { lines: string[]; lineOf: Map<string, number
     emitChildren(tree.root, tree.baseLevel, '');
     const contentEnd = out.length;
     const paths = Object.keys(tree.positions);
-    if (paths.length > 0) {
+    if (paths.length > 0 || tree.view) {
         for (let i = 0; i < tree.positionsGap; i++) {
             out.push('');
         }
         out.push(POSITIONS_START);
         for (const path of paths) {
             out.push(`${path}: ${tree.positions[path].x},${tree.positions[path].y}`);
+        }
+        if (tree.view) {
+            out.push(`view ${tree.view.x},${tree.view.y}`);
         }
         out.push(POSITIONS_END);
     }

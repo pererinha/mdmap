@@ -527,6 +527,44 @@ describe('md-tree positions block', () => {
         const out = serializeMarkdown(reconcile(tree, root, { [artigos.id]: { x: 1, y: 2 } }));
         expect(out).to.contain('%% mindmap-positions\nPesquisa/Papers: 1,2\n%%');
     });
+
+    it('a block with only node positions has no view point', () => {
+        expect(parseMarkdown(WITH_BLOCK).view).to.equal(undefined);
+    });
+
+    it('round-trips a block with only the view point byte for byte', () => {
+        const md = CANAL + '\n%% mindmap-positions\nview 312,-85\n%%\n';
+        const tree = parseMarkdown(md);
+        expect(tree.view).to.deep.equal({ x: 312, y: -85 });
+        expect(tree.positions).to.deep.equal({});
+        expect(mapRoot(tree, 'f').children.map(c => c.title)).to.deep.equal(['Pesquisa', 'Roteiro']);
+        expect(serializeMarkdown(tree)).to.equal(md);
+    });
+
+    it('reads node positions and the view point together, and writes the view point last', () => {
+        const md = CANAL + '\n%% mindmap-positions\nview 10,20\nRoteiro: -300,15\n%%\n';
+        const tree = parseMarkdown(md);
+        expect(tree.positions).to.deep.equal({ Roteiro: { x: -300, y: 15 } });
+        expect(tree.view).to.deep.equal({ x: 10, y: 20 });
+        expect(serializeMarkdown(tree)).to.equal(CANAL + '\n%% mindmap-positions\nRoteiro: -300,15\nview 10,20\n%%\n');
+    });
+
+    it('a node titled "view" keeps its own position apart from the view point', () => {
+        const md = '# Canal\n\n## view\n\n%% mindmap-positions\nview: 5,6\nview 7,8\n%%\n';
+        const tree = parseMarkdown(md);
+        expect(tree.positions).to.deep.equal({ view: { x: 5, y: 6 } });
+        expect(tree.view).to.deep.equal({ x: 7, y: 8 });
+        expect(serializeMarkdown(tree)).to.equal(md);
+    });
+
+    it('keeps the view point through an edit, and writes no block when there is neither a position nor a view point', () => {
+        const tree = { ...parseMarkdown(CANAL), view: { x: 1, y: -2 } };
+        const root = mapRoot(tree, 'f');
+        find(root, 'Artigos')!.title = 'Papers';
+        const edited = reconcile(tree, root, {});
+        expect(serializeMarkdown(edited)).to.equal(CANAL.replace('### Artigos', '### Papers') + '\n%% mindmap-positions\nview 1,-2\n%%\n');
+        expect(serializeMarkdown({ ...edited, view: undefined })).to.equal(CANAL.replace('### Artigos', '### Papers'));
+    });
 });
 
 describe('md-tree node lines', () => {

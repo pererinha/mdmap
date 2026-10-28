@@ -45,6 +45,11 @@ export class EditorSync {
         return positionsToIds(this.root(), this.tree.positions);
     }
 
+    /** The map point the file saved at the center of the view, if any. */
+    view(): XY | undefined {
+        return this.tree.view;
+    }
+
     /** Line of the node's heading or list item in the file, 0-based; undefined for a root that has no line of its own. */
     lineOf(id: string): number | undefined {
         return nodeLines(this.tree).get(id);
@@ -80,7 +85,15 @@ export class EditorSync {
 
     /** Returns true when the file was written. */
     async commit(editorRoot: PlainNode, source: string, positions?: Record<string, XY>): Promise<boolean> {
-        const next = reconcile(this.tree, editorRoot, positions);
+        return this.write(reconcile(this.tree, editorRoot, positions), source);
+    }
+
+    /** Saves the map point at the center of the view; returns true when the file was written. */
+    async commitView(view: XY): Promise<boolean> {
+        return this.write({ ...this.tree, view }, 'view');
+    }
+
+    private async write(next: MdTree, source: string): Promise<boolean> {
         const md = serializeMarkdown(next);
         if (md === this.lastWritten) {
             return false;
