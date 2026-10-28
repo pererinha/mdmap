@@ -22,6 +22,7 @@ export interface SettingsActions {
     toggleReveal: () => void;
     toggleParagraphs: () => void;
     setColors: (colors: NodeColors) => void;
+    toggleLock: () => void;
 }
 
 type Theme = keyof NodeColors;

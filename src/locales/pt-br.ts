@@ -32,6 +32,10 @@ export const ptBR: Strings = {
     tidyTree: 'Árvore',
     centerRoot: 'Raiz no centro',
     radial: 'Radial',
+    undo: 'Desfazer',
+    redo: 'Refazer',
+    lockMap: 'Travar o mapa contra mudanças',
+    unlockMap: 'Destravar o mapa',
     listItemsName: 'Itens de lista e parágrafos como nós',
     listItemsDesc:
         'Mostra como nós os itens de lista e os parágrafos sob um título; uma lista logo depois de um parágrafo vira filha dele. Vale quando um mapa mental é aberto.',

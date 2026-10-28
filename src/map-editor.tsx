@@ -7,7 +7,9 @@
  * page, and pinching zooms. Keys:
  * double-click edits the text in place until a click outside or Escape, Tab adds a child, Enter adds a sibling, Delete removes,
  * Alt+Up/Down reorders, dropping a node or the grip on its incoming side onto another node reparents,
- * Cmd+Z / Cmd+Shift+Z undo and redo. The search field at the top-left highlights the nodes that
+ * Cmd+Z / Cmd+Shift+Z and the buttons under the layout buttons undo and redo, also a dragged position or a layout.
+ * The lock next to them keeps the map from changing the note: no editing, dragging, layouts or undo while it is
+ * closed. The search field at the top-left highlights the nodes that
  * contain its text; Enter and Shift+Enter center the next and previous one.
  * Space, or the button on the side a node's children leave from, collapses and expands them; a
  * collapsed node shows how many nodes it hides. Showing a hidden node (search, focus, Tab, a move
@@ -99,6 +101,13 @@ interface EditorNodeData extends MdNodeData {
 }
 
 type EditorNode = Node<EditorNodeData, typeof NODE_TYPE>;
+
+/** What undo and redo bring back: the tree, the saved positions and the layout they are offsets in. */
+interface Snapshot {
+    root: PlainNode;
+    positions: Record<string, XY>;
+    layout: Layout;
+}
 
 const FACINGS: Facing[] = ['left', 'right', 'top', 'bottom'];
 const HANDLE_POSITION: Record<Facing, Position> = { left: Position.Left, right: Position.Right, top: Position.Top, bottom: Position.Bottom };
@@ -300,8 +309,11 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
     const rootRef = useRef(initialRoot);
     const positionsRef = useRef<Record<string, XY>>(initialPositions ?? {});
     const layoutRef = useRef<Layout>('center');
-    const past = useRef<PlainNode[]>([]);
-    const future = useRef<PlainNode[]>([]);
+    const past = useRef<Snapshot[]>([]);
+    const future = useRef<Snapshot[]>([]);
+    /** Whether the undo and redo buttons have something to do. */
+    const [history, setHistory] = useState({ undo: false, redo: false });
+    const [locked, setLocked] = useState(settings.locked);
     const selectedId = useRef<string | null>(null);
     const [nodes, setNodes, onNodesChange] = useNodesState<EditorNode>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -462,6 +474,13 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
 
     useEffect(() => stopAnimation, [stopAnimation]);
 
+    /** Saves the map as it is now for undo, before a change; the changes undone before it can no longer be redone. */
+    const remember = useCallback(() => {
+        past.current.push({ root: rootRef.current, positions: positionsRef.current, layout: layoutRef.current });
+        future.current = [];
+        setHistory({ undo: true, redo: false });
+    }, []);
+
     useEffect(() => {
         render(rootRef.current);
     }, []);
@@ -486,6 +505,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 if (resetHistory) {
                     past.current = [];
                     future.current = [];
+                    setHistory({ undo: false, redo: false });
                 }
                 rootRef.current = root;
                 if (positions) {
@@ -494,6 +514,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 render(root);
             },
             organize(layout) {
+                remember();
                 layoutRef.current = layout;
                 positionsRef.current = {};
                 const built = build(rootRef.current);
@@ -532,7 +553,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
             instance: flow,
         };
         onReady(handleRef.current);
-    }, [onReady, render, build, glide, setEdges, flow, onChange, expandAbove, changeCollapsed]);
+    }, [onReady, render, build, glide, setEdges, flow, onChange, expandAbove, changeCollapsed, remember]);
 
     // A node focus() had to expand the map for is centered once React Flow has measured it.
     useEffect(() => {
@@ -549,28 +570,34 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
             if (next === rootRef.current) {
                 return;
             }
-            past.current.push(rootRef.current);
-            future.current = [];
+            remember();
             rootRef.current = next;
             render(next);
             onChange(next, source, positionsRef.current);
         },
-        [render, onChange],
+        [render, onChange, remember],
     );
 
+    /** Undo takes the map back from `past` and keeps it as it is now in `future`; redo the other way round. */
     const restore = useCallback(
-        (from: PlainNode[], to: PlainNode[], source: string) => {
+        (from: Snapshot[], to: Snapshot[], source: string) => {
             const target = from.pop();
             if (!target) {
                 return;
             }
-            to.push(rootRef.current);
-            rootRef.current = target;
-            render(target);
-            onChange(target, source, positionsRef.current);
+            to.push({ root: rootRef.current, positions: positionsRef.current, layout: layoutRef.current });
+            setHistory({ undo: past.current.length > 0, redo: future.current.length > 0 });
+            rootRef.current = target.root;
+            positionsRef.current = target.positions;
+            layoutRef.current = target.layout;
+            render(target.root);
+            onChange(target.root, source, target.positions);
         },
         [render, onChange],
     );
+    const undo = useCallback(() => restore(past.current, future.current, 'undo'), [restore]);
+    const redo = useCallback(() => restore(future.current, past.current, 'redo'), [restore]);
+
 
     /** Lays the map out with the text being typed, without writing the note: the box and its neighbours follow the text. */
     const onEditInput = useCallback(
@@ -653,6 +680,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 apply(moved, 'move');
             } else if (node.id !== rootRef.current.id) {
                 // Dropped on empty canvas: the node keeps this offset from its parent and the file remembers it.
+                remember();
                 positionsRef.current = { ...positionsRef.current, [node.id]: { ...node.position } };
                 render(rootRef.current);
                 onChange(rootRef.current, 'position', positionsRef.current);
@@ -660,7 +688,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 render(rootRef.current);
             }
         },
-        [flow, apply, render, onChange, expandAbove],
+        [flow, apply, render, onChange, expandAbove, remember],
     );
 
     // A grip released over a node moves the grip's node under it; anywhere else nothing changes.
@@ -681,7 +709,8 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
 
     const onKeyDown = useCallback(
         (event: ReactKeyboardEvent) => {
-            if (editingId) {
+            // Locked, only Space acts: collapsing changes what the map shows, not the note.
+            if (editingId || (locked && event.key !== ' ')) {
                 return;
             }
             const meta = event.metaKey || event.ctrlKey;
@@ -689,9 +718,9 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 event.preventDefault();
                 event.stopPropagation();
                 if (event.shiftKey) {
-                    restore(future.current, past.current, 'redo');
+                    redo();
                 } else {
-                    restore(past.current, future.current, 'undo');
+                    undo();
                 }
                 return;
             }
@@ -737,7 +766,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                     break;
             }
         },
-        [editingId, apply, restore, startEditing, expandAbove, toggle],
+        [editingId, locked, apply, undo, redo, startEditing, expandAbove, toggle],
     );
 
     // `nodes` changes every time the tree is rendered, so the matches follow edits.
@@ -776,7 +805,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
     );
 
     return (
-        <div className="mdmap-root" ref={containerRef} tabIndex={0} onKeyDown={onKeyDown}>
+        <div className={`mdmap-root${locked ? ' mdmap-locked' : ''}`} ref={containerRef} tabIndex={0} onKeyDown={onKeyDown}>
             <ReactFlow
                 nodes={displayNodes}
                 edges={edges}
@@ -790,6 +819,8 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                     onClickNode?.(null);
                 }}
                 onNodeDoubleClick={(event, node) => startEditing(node.id, { x: event.clientX, y: event.clientY })}
+                nodesDraggable={!locked}
+                nodesConnectable={!locked}
                 onNodeDragStart={onNodeDragStart}
                 onNodeDragStop={onNodeDragStop}
                 onConnectEnd={onConnectEnd}
@@ -827,35 +858,56 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                     />
                     {query.trim() && <span className="mdmap-search-count">{`${at + 1}/${matches.length}`}</span>}
                 </Panel>
-                <Panel position="top-right" className="mdmap-panel">
-                    <span className="mdmap-organizers">
-                        {ORGANIZERS.map(item => (
-                            <button
-                                key={item.layout}
-                                className="mdmap-organize"
-                                data-layout={item.layout}
-                                aria-label={item.label}
-                                onClick={() => handleRef.current?.organize(item.layout)}
-                            >
-                                <span
-                                    className="mdmap-organize-icon"
-                                    ref={iconRef(item.icon)}
-                                />
-                                <span className="mdmap-organize-label">{item.label}</span>
-                            </button>
-                        ))}
+                <Panel position="top-right" className="mdmap-panel mdmap-toolbar">
+                    <span className="mdmap-panel">
+                        <span className="mdmap-organizers">
+                            {ORGANIZERS.map(item => (
+                                <button
+                                    key={item.layout}
+                                    className="mdmap-organize"
+                                    data-layout={item.layout}
+                                    aria-label={item.label}
+                                    disabled={locked}
+                                    onClick={() => handleRef.current?.organize(item.layout)}
+                                >
+                                    <span
+                                        className="mdmap-organize-icon"
+                                        ref={iconRef(item.icon)}
+                                    />
+                                    <span className="mdmap-organize-label">{item.label}</span>
+                                </button>
+                            ))}
+                        </span>
+                        <SettingsPanel
+                            settings={settings}
+                            actions={settingsActions}
+                            open={settingsOpen}
+                            onOpenChange={open => {
+                                setSettingsOpen(open);
+                                if (!open) {
+                                    containerRef.current?.focus();
+                                }
+                            }}
+                        />
                     </span>
-                    <SettingsPanel
-                        settings={settings}
-                        actions={settingsActions}
-                        open={settingsOpen}
-                        onOpenChange={open => {
-                            setSettingsOpen(open);
-                            if (!open) {
-                                containerRef.current?.focus();
-                            }
-                        }}
-                    />
+                    {/* Under the layout buttons, so a phone-width map has room for the search field next to them. */}
+                    <span className="mdmap-organizers mdmap-tools">
+                        <button className="mdmap-tool" data-tool="undo" aria-label={t('undo')} disabled={locked || !history.undo} ref={iconRef('undo-2')} onClick={undo} />
+                        <button className="mdmap-tool" data-tool="redo" aria-label={t('redo')} disabled={locked || !history.redo} ref={iconRef('redo-2')} onClick={redo} />
+                        <button
+                            // A new element for the other icon: iconRef only fills an empty one.
+                            key={locked ? 'locked' : 'open'}
+                            className="mdmap-tool"
+                            data-tool="lock"
+                            aria-label={locked ? t('unlockMap') : t('lockMap')}
+                            aria-pressed={locked}
+                            ref={iconRef(locked ? 'lock' : 'lock-open')}
+                            onClick={() => {
+                                settingsActions.toggleLock();
+                                setLocked(settings.locked);
+                            }}
+                        />
+                    </span>
                 </Panel>
             </ReactFlow>
         </div>

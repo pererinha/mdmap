@@ -11,6 +11,8 @@ export interface MdmapSettings {
     collapsed: Record<string, string[]>;
     /** The colours picked in the map's settings, for each theme. */
     colors: NodeColors;
+    /** The lock in the map is closed: the map shows the note but does not change it. */
+    locked: boolean;
 }
 
 /**
@@ -54,6 +56,7 @@ export const DEFAULT_SETTINGS: MdmapSettings = {
     collapsed: {},
     // Replaced whole on every change, never changed in place.
     colors: { light: NO_COLORS, dark: NO_COLORS },
+    locked: false,
 };
 
 /** The CSS variables a map reads the colours picked for a theme from (`src/styles.css`); an empty colour's variable is removed. */

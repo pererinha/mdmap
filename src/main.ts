@@ -32,6 +32,10 @@ export default class MdmapPlugin extends Plugin {
             void this.saveSettings();
             this.maps().forEach(view => view.applyColors());
         },
+        toggleLock: () => {
+            this.settings.locked = !this.settings.locked;
+            void this.saveSettings();
+        },
     };
 
     async onload() {

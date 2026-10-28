@@ -258,6 +258,42 @@
     color: var(--text-normal);
     background: var(--background-modifier-hover);
 }
+/* Undo, redo and the lock, in a frame like the layout buttons', under them at the right. */
+.mdmap-toolbar {
+    flex-direction: column;
+    align-items: flex-end;
+}
+.mdmap-organizers .mdmap-tool {
+    display: inline-flex;
+    align-items: center;
+    height: 26px;
+    padding: 0 8px;
+    border-radius: var(--radius-s);
+    color: var(--text-muted);
+    background: transparent;
+    box-shadow: none;
+}
+.mdmap-tool svg {
+    width: 14px;
+    height: 14px;
+}
+.mdmap-organizers .mdmap-tool:hover {
+    color: var(--text-normal);
+    background: var(--background-modifier-hover);
+}
+.mdmap-organizers .mdmap-tool[aria-pressed='true'] {
+    color: var(--text-accent);
+}
+.mdmap-organizers .mdmap-tool:disabled,
+.mdmap-organizers .mdmap-organize:disabled {
+    opacity: 0.4;
+    background: transparent;
+    cursor: default;
+}
+/* A locked map moves no node, so the grip that moves one is not shown. */
+.mdmap-locked .mdmap-grip {
+    display: none;
+}
 /* On a narrow map, a phone's, the layout buttons show only their icons; the name stays in their aria-label. */
 @container (max-width: 520px) {
     .mdmap-organize-label {

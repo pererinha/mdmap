@@ -31,6 +31,10 @@ export const en = {
     tidyTree: 'Tidy tree',
     centerRoot: 'Center root',
     radial: 'Radial',
+    undo: 'Undo',
+    redo: 'Redo',
+    lockMap: 'Lock the map against changes',
+    unlockMap: 'Unlock the map',
     listItemsName: 'List items and paragraphs as nodes',
     listItemsDesc:
         'Show the list items and paragraphs under a heading as nodes; a list right after a paragraph becomes its children. Takes effect when a mind map is opened.',
