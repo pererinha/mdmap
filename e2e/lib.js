@@ -20,6 +20,9 @@ async function connect() {
   }
   const logs = [];
   page.on('console', m => { const t = m.text(); if (t.includes('[mdmap]') || m.type() === 'error') logs.push(t.slice(0, 200)); });
+  // A window behind others stops drawing frames and taking input unless background throttling is off: scenarios
+  // then fail on unmeasured nodes and mouse events that time out.
+  await page.evaluate(() => require('electron').remote.getCurrentWebContents().setBackgroundThrottling(false));
   const size = await page.evaluate(() => { try { const w = require('electron').remote.getCurrentWindow(); w.setSize(1600, 900); return w.getSize(); } catch (e) { return 'resize failed: ' + e.message; } });
   console.log('window', JSON.stringify(size));
   return { browser, page, logs, drain: () => logs.splice(0) };
