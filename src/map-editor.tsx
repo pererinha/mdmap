@@ -112,6 +112,21 @@ interface Snapshot {
 const FACINGS: Facing[] = ['left', 'right', 'top', 'bottom'];
 const HANDLE_POSITION: Record<Facing, Position> = { left: Position.Left, right: Position.Right, top: Position.Top, bottom: Position.Bottom };
 
+/** Where a node sits on the map: its offsets added up along the parent chain. */
+function absolutePosition(nodes: EditorNode[], id: string): XY | undefined {
+    const byId = new Map(nodes.map(node => [node.id, node]));
+    let node = byId.get(id);
+    if (!node) {
+        return undefined;
+    }
+    const at = { x: 0, y: 0 };
+    for (; node; node = node.parentId ? byId.get(node.parentId) : undefined) {
+        at.x += node.position.x;
+        at.y += node.position.y;
+    }
+    return at;
+}
+
 /** The edited text as the note gets it: a paragraph keeps its lines, any other node is one line. */
 function editedText(el: HTMLElement, paragraph: boolean): string {
     const text = el.textContent ?? '';
@@ -381,6 +396,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
             const built = build(root);
             setNodes(built.nodes);
             setEdges(built.edges);
+            return built;
         },
         [stopAnimation, build, setNodes, setEdges],
     );
@@ -598,14 +614,32 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
     const undo = useCallback(() => restore(past.current, future.current, 'undo'), [restore]);
     const redo = useCallback(() => restore(future.current, past.current, 'redo'), [restore]);
 
+    /** How far the view still has to move, in map units, for the node being edited to stay where it was on screen. */
+    const editShift = useRef<XY | null>(null);
 
-    /** Lays the map out with the text being typed, without writing the note: the box and its neighbours follow the text. */
+    /**
+     * Lays the map out with the text being typed, without writing the note: the box follows the text and its
+     * neighbours make room, while the view moves with the box, so the line being typed stays where it is on screen.
+     */
     const onEditInput = useCallback(
         (id: string, text: string) => {
-            render(setText(rootRef.current, id, text, true));
+            const before = flow.getInternalNode(id)?.internals.positionAbsolute;
+            const after = before && absolutePosition(render(setText(rootRef.current, id, text, true)).nodes, id);
+            editShift.current = after && (after.x !== before.x || after.y !== before.y) ? { x: after.x - before.x, y: after.y - before.y } : null;
         },
-        [render],
+        [flow, render],
     );
+
+    // Runs after React Flow has taken the new nodes, so the boxes and the view move in the same frame.
+    useEffect(() => {
+        const shift = editShift.current;
+        if (!shift) {
+            return;
+        }
+        editShift.current = null;
+        const { x, y, zoom } = flow.getViewport();
+        void flow.setViewport({ x: x - shift.x * zoom, y: y - shift.y * zoom, zoom });
+    }, [nodes, flow]);
 
     const startEditing = useCallback(
         (id: string, point?: XY) => {
@@ -640,7 +674,15 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
         if (!editingId || !container) {
             return;
         }
+        // The observer also reports the pane once when it starts; only a real change of size counts, or a node taller
+        // than the pane would be recentered, and the line under the caret moved, as soon as editing starts.
+        let size = `${container.clientWidth}x${container.clientHeight}`;
         const observer = new ResizeObserver(() => {
+            const next = `${container.clientWidth}x${container.clientHeight}`;
+            if (next === size) {
+                return;
+            }
+            size = next;
             const el = container.querySelector(`.react-flow__node[data-id="${CSS.escape(editingId)}"]`);
             const node = flow.getInternalNode(editingId);
             if (!el || !node) {
