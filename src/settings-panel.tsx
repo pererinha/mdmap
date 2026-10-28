@@ -21,6 +21,7 @@ import { t } from './i18n';
 export interface SettingsActions {
     toggleReveal: () => void;
     toggleParagraphs: () => void;
+    toggleRememberPosition: () => void;
     setColors: (colors: NodeColors) => void;
     toggleLock: () => void;
 }
@@ -276,6 +277,7 @@ export function SettingsPanel({ settings, actions, open, onOpenChange }: Setting
                     {toggle(t('showClickedNode'), settings.revealInNote, actions.toggleReveal)}
                     {/* Without list items as nodes, paragraphs are never nodes. */}
                     {toggle(t('showParagraphs'), settings.paragraphsAsNodes, actions.toggleParagraphs, !settings.listItemsAsNodes)}
+                    {toggle(t('rememberPosition'), settings.rememberPosition, actions.toggleRememberPosition)}
                     <ColorEditor settings={settings} actions={actions} />
                 </div>
             )}

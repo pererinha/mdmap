@@ -22,6 +22,7 @@ export class MdmapSettingTab extends PluginSettingTab {
                 control: { type: 'toggle', key: 'paragraphsAsNodes', disabled: () => !this.plugin.settings.listItemsAsNodes },
             },
             { name: t('showClickedNode'), desc: t('showClickedNodeDesc'), control: { type: 'toggle', key: 'revealInNote' } },
+            { name: t('rememberPosition'), desc: t('rememberPositionDesc'), control: { type: 'toggle', key: 'rememberPosition' } },
             { name: t('mapWidthName'), desc: t('mapWidthDesc'), control: { type: 'slider', key: 'mapWidth', min: 20, max: 80, step: 5, displayFormat: value => `${value}%` } },
             {
                 type: 'group',

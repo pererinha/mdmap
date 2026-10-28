@@ -27,6 +27,10 @@ export default class MdmapPlugin extends Plugin {
             void this.saveSettings();
             this.maps().forEach(view => view.reparse());
         },
+        toggleRememberPosition: () => {
+            this.settings.rememberPosition = !this.settings.rememberPosition;
+            void this.saveSettings();
+        },
         setColors: colors => {
             this.settings.colors = colors;
             void this.saveSettings();

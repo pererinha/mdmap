@@ -130,6 +130,12 @@ export default class EditorView extends ItemView {
             <MapEditor
                 root={root}
                 positions={this.sync.positions()}
+                view={this.settings.rememberPosition ? this.sync.view() : undefined}
+                onViewChange={view => {
+                    if (this.settings.rememberPosition) {
+                        void this.sync.commitView(view);
+                    }
+                }}
                 onChange={(next: PlainNode, source: string, positions: Record<string, XY>) => void this.commit(next, source, positions)}
                 onReady={handle => (this.editor = handle)}
                 resolveMedia={link => this.resolveMedia(link)}

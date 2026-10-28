@@ -48,3 +48,9 @@ describe('node colours', () => {
         expect(parseHex('')).to.equal(null);
     });
 });
+
+describe('remember map position', () => {
+    it('is off until the user turns it on', () => {
+        expect(DEFAULT_SETTINGS.rememberPosition).to.equal(false);
+    });
+});

@@ -5,6 +5,8 @@ export interface MdmapSettings {
     paragraphsAsNodes: boolean;
     /** Clicking a node in the map scrolls the note to it and highlights its line. */
     revealInNote: boolean;
+    /** The map saves the point where the user left it in the note's positions block, and opens there again. */
+    rememberPosition: boolean;
     /** The mind map's share of the window when it opens next to the note, in percent; the note gets the rest. */
     mapWidth: number;
     /** The collapsed nodes of each note, by the note's path, as title paths ("A/B" for B under A). */
@@ -52,6 +54,7 @@ export const DEFAULT_SETTINGS: MdmapSettings = {
     listItemsAsNodes: true,
     paragraphsAsNodes: true,
     revealInNote: true,
+    rememberPosition: false,
     mapWidth: 50,
     collapsed: {},
     // Replaced whole on every change, never changed in place.
