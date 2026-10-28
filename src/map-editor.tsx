@@ -31,7 +31,7 @@ import {
     getViewportForBounds,
     useReactFlow,
 } from '@xyflow/react';
-import type { Edge, Node, NodeProps, OnConnectEnd, OnNodeDrag, OnSelectionChangeFunc, ReactFlowInstance } from '@xyflow/react';
+import type { Edge, Node, NodeProps, OnConnectEnd, OnMoveEnd, OnNodeDrag, OnSelectionChangeFunc, ReactFlowInstance, Viewport } from '@xyflow/react';
 import { PlainNode, XY } from './md-tree';
 import { Facing, Layout, MdNodeData, NODE_TYPE, layoutTree } from './tree-layout';
 import { t } from './i18n';
@@ -64,6 +64,10 @@ interface MapEditorProps {
     root: PlainNode;
     /** Saved positions by node id. */
     positions?: Record<string, XY>;
+    /** The map point to put at the center of the view when the map opens; undefined fits the whole map. */
+    view?: XY;
+    /** The map point at the center of the view, each time the map stops moving after it opened. */
+    onViewChange?: (view: XY) => void;
     onChange: (root: PlainNode, source: string, positions: Record<string, XY>) => void;
     onReady: (handle: MapEditorHandle) => void;
     /** Turns an embed link into something the node can show; null hides it. */
@@ -358,7 +362,7 @@ const ORGANIZERS: Array<{ layout: Layout; label: string; icon: string }> = [
     { layout: 'radial', label: t('radial'), icon: 'orbit' },
 ];
 
-function Editor({ root: initialRoot, positions: initialPositions, onChange, onReady, resolveMedia, renderText, onOpenMedia, onClickNode, onCopyNode, collapsed: initialCollapsed, onCollapse, settings, settingsActions }: MapEditorProps) {
+function Editor({ root: initialRoot, positions: initialPositions, view: initialView, onViewChange, onChange, onReady, resolveMedia, renderText, onOpenMedia, onClickNode, onCopyNode, collapsed: initialCollapsed, onCollapse, settings, settingsActions }: MapEditorProps) {
     const flow = useReactFlow<EditorNode>();
     const rootRef = useRef(initialRoot);
     const positionsRef = useRef<Record<string, XY>>(initialPositions ?? {});
@@ -542,18 +546,51 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
         render(rootRef.current);
     }, []);
 
-    // Nodes are measured after the first render; fit the viewport once they are.
+    // Nodes are measured after the first render; place the viewport once they are.
     const initialized = useNodesInitialized();
     const fitted = useRef(false);
+    /** Where the opening placement left the viewport; null until it is done. */
+    const openedAt = useRef<Viewport | null>(null);
     useEffect(() => {
         if (initialized && !fitted.current) {
             fitted.current = true;
             // The split that hosts the view may still be resizing on its first frames.
+            // The viewport is computed here and set at once, so the map knows where it opened before any move ends.
             window.setTimeout(() => {
-                void flow.fitView({ padding: FIT_PADDING, maxZoom: FIT_MAX_ZOOM });
+                const container = containerRef.current;
+                if (!container) {
+                    return;
+                }
+                const { clientWidth: width, clientHeight: height } = container;
+                const fit = getViewportForBounds(flow.getNodesBounds(flow.getNodes()), width, height, MIN_ZOOM, FIT_MAX_ZOOM, FIT_PADDING);
+                // The zoom of the fit, centred on the point where the user left the map, or the whole map.
+                const viewport = initialView ? { x: width / 2 - initialView.x * fit.zoom, y: height / 2 - initialView.y * fit.zoom, zoom: fit.zoom } : fit;
+                openedAt.current = viewport;
+                void flow.setViewport(viewport);
             }, 100);
         }
     }, [initialized, flow]);
+
+    /**
+     * Tells the view which map point is at the center once the map stops moving. With panOnScroll, React Flow reports
+     * the end of a move 150 ms late, so the end of the opening placement arrives after it: that one, still where the
+     * placement left the map, is skipped.
+     */
+    const onMoveEnd = useCallback<OnMoveEnd>(
+        (_event, viewport) => {
+            const container = containerRef.current;
+            const at = openedAt.current;
+            const unmoved = at && Math.abs(viewport.x - at.x) < 0.01 && Math.abs(viewport.y - at.y) < 0.01 && Math.abs(viewport.zoom - at.zoom) < 1e-6;
+            if (!at || unmoved || !container || container.clientWidth === 0) {
+                return;
+            }
+            onViewChange?.({
+                x: Math.round((container.clientWidth / 2 - viewport.x) / viewport.zoom),
+                y: Math.round((container.clientHeight / 2 - viewport.y) / viewport.zoom),
+            });
+        },
+        [onViewChange],
+    );
 
     const handleRef = useRef<MapEditorHandle | null>(null);
     useEffect(() => {
@@ -923,6 +960,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 nodeDragThreshold={4}
                 panOnScroll
                 panOnScrollSpeed={1}
+                onMoveEnd={onMoveEnd}
                 deleteKeyCode={null}
                 // Space collapses and expands the selected node; dragging the canvas still pans.
                 panActivationKeyCode={null}
