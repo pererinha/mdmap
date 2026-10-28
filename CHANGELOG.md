@@ -22,6 +22,13 @@
 - A node whose saved position ends up under another box, because a box grew
   or the tree around it changed, moves up or down just enough to clear it. The
   position saved in the note does not change.
+- Closing an image opened from a node no longer puts the map back where it
+  started, and neither does resizing the window or the pane: the map stays
+  where you left it.
+- *Remember map position*, a new switch under the map's gear and in the
+  plugin's settings, off by default. On, the map saves the point you were
+  looking at as a `view x,y` line in the comment at the end of the note, and
+  opens there again, at the zoom that fits the whole map.
 
 ## 1.3.1
 
