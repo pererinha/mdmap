@@ -34,7 +34,12 @@ is no separate mind map file.
 - **Copy a branch as Markdown**, exactly as it is written in the note.
 - **Mermaid export.** Copy the whole note as a Mermaid `mindmap` block.
 - **Images and videos** embedded in the note are shown inside their node.
-- **Undo and redo** for changes made in the map.
+- **Undo and redo** for changes made in the map, including a node dragged to
+  a new place and a layout button, with the keyboard or the buttons under the
+  layout buttons.
+- **Lock.** The lock next to undo and redo stops the map from changing the
+  note: no editing, dragging or layouts until you open it again. It is open by
+  default, and the map remembers it.
 - **In Obsidian's language.** Brazilian Portuguese is the first translation;
   other languages show English.
 
@@ -85,9 +90,10 @@ gets it as a nested item:
   plugin updates the heading levels of the node and everything under it.
 - If a note has more than one top-level heading, the map adds a root node
   named after the file.
-- Paragraphs that follow one another are one node, which shows up to six
-  lines of text; hover over it to see the rest. A list right after a
-  paragraph becomes that paragraph's children.
+- Paragraphs that follow one another are one node, which shows the whole
+  text with Markdown formatting. Images stack inside the paragraph's box.
+  Click the text to edit its Markdown source. A list right after a paragraph
+  becomes that paragraph's children.
 - Tables, code blocks, quotes and embeds belong to the node before them and
   move with it.
 - A node shows the first line of its content under its title.
@@ -109,7 +115,7 @@ directly into the vault (see [Development](#development)), and turn on
 
 | Action | Input |
 |---|---|
-| Edit a node's text | Double-click where the caret should go and type in the node itself; click outside or press Escape to finish (Cmd+Z then undoes it). In a paragraph, Enter and Shift+Enter add a line |
+| Edit a node's text | Click where the caret should go and type in the node itself; click outside, or press Escape to finish and keep the node selected for the keys below (Cmd+Z then undoes it). In a paragraph, Enter and Shift+Enter add a line |
 | Add a child | Tab |
 | Add a sibling | Enter |
 | Delete | Delete or Backspace |
@@ -118,7 +124,8 @@ directly into the vault (see [Development](#development)), and turn on
 | Collapse or expand the nodes under a node | Space on the selected node, or click the dot on the side its children leave from |
 | Place a node anywhere | Drag the node to an empty part of the map; the nodes under it move with it |
 | Copy a node and the nodes under it as Markdown | Hover over the node and click the copy icon in its corner |
-| Undo / redo | Cmd+Z / Cmd+Shift+Z (Ctrl on Windows and Linux) |
+| Undo / redo | Cmd+Z / Cmd+Shift+Z (Ctrl on Windows and Linux), or the arrows under the layout buttons |
+| Lock or unlock the map | Click the lock under the layout buttons. While it is closed, you can still move around, zoom, search, collapse, copy and click a node to see it in the note |
 | Search the map | Cmd+F (Ctrl on Windows and Linux) or click the search field, type; Enter / Shift+Enter center the next / previous match, Escape clears |
 | Move around the map | Scroll with two fingers on a trackpad or with the mouse wheel, or drag an empty part of the map |
 | Zoom | Pinch on a trackpad, or Cmd+scroll (Ctrl on Windows and Linux) |
@@ -140,7 +147,7 @@ mdmap* has them too, and two more.
   nodes and their text stays in the heading above them; the note does not
   change. It needs *List items and paragraphs as nodes*.
 - **Show clicked node in the note** (on by default). When it is off,
-  clicking a node only selects it in the map.
+  clicking a node does not show it in the note.
 - **Mind map width** (50 % by default, only in *Settings → mdmap*). The
   map's share of the window, from 20 to 80 %, when it opens next to the note.
 - **Colors.** One tab for the light theme and one for the dark theme, each

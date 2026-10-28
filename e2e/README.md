@@ -35,6 +35,7 @@ node e2e/organize.js   # organizer buttons on story.md: transition sampled over 
 node e2e/reveal.js     # clicking a node highlights its line in the note; the map's gear turns it off
 node e2e/trackpad.js   # two-finger scroll pans one to one, pinch zooms around the fingers, the window does not zoom
 node e2e/paragraphs.js # paragraphs that follow one another as one text block, a list hanging from the paragraph before it, Tab and undo on it, the gear's "Show paragraphs"
+node e2e/paragraph-media.js # formatted paragraph text, multiple images inside the box in both themes, caret on the clicked formatted text, no write on unchanged edits
 node e2e/copy.js       # the copy icon on a node puts its Markdown section on the clipboard (saved and restored)
 node e2e/grip.js       # the grip shows when the pointer reaches it, also from outside the box; dragged onto another node it moves its node there; Cmd+Z
 node e2e/i18n.js       # with Obsidian in Brazilian Portuguese, commands, buttons, search and the settings under the gear are in Portuguese; the language is put back
@@ -46,6 +47,7 @@ node e2e/focus.js      # the cursor on a heading in the note selects and centers
 node e2e/search.js     # Cmd/Ctrl+F, highlighted matches, Enter / Shift+Enter center them, Escape; Cmd/Ctrl+F in the note is Obsidian's
 node e2e/editing.js    # editing in place: same look, caret where clicked, the box grows, Enter / Escape, long titles, a paragraph edited whole
 node e2e/colors.js     # the gear's colours on a note with 13 top-level branches: a tab per theme with the centre and the palette; the centre opens a bar with its text colour, branches past the sixth lighter each round, a new branch too; a palette colour opens a bar with its shades, which colour the nodes under its branches by level; Edit; hex typed or picked reaches the open map in its theme only; kept on reload; "Use theme colors"; Escape and a canvas click close; the colours saved before are put back
+node e2e/undo-lock.js  # the undo and redo buttons take back and bring back a rename, a dragged position and a layout, positions block included; the lock stops editing, keys, dragging and layouts, Space still collapses, it stays closed on reopening; the lock is put back
 node e2e/android.js    # Obsidian for Android on an emulator (see "Android" below): the node being edited stays visible above the keyboard; a tap outside saves it
 ```
 
@@ -62,7 +64,7 @@ through `head`: a closed pipe kills the scenario midway.
 
 1. installs the build from the repository's root;
 2. opens the map of `Android-e2e.md`;
-3. double-taps a node in the middle of the screen and one near the bottom, and
+3. taps a node in the middle of the screen and one near the bottom, and
    checks that each stays visible above the keyboard;
 4. types in the node, taps outside it, and checks that the note has the new
    title.

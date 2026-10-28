@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.4.0
+
+- Undo and redo buttons under the layout buttons, for phones and tablets
+  without Cmd+Z. Undo now also takes back a node dragged to an empty part of
+  the map and a layout button (*Tidy tree*, *Center root*, *Radial*), which
+  used to drop every dragged position for good.
+- A lock next to undo and redo. Closed, it stops the map from changing the
+  note: no editing, adding, deleting, dragging, layouts or undo. You can still
+  move around, zoom, search, collapse and expand, copy, and click a node to see
+  it in the note. It is open by default, and the map remembers it.
+- One click edits a node, with the caret where you clicked; there is no more
+  double-click. Press Escape to finish and keep the node selected for Tab,
+  Enter, Delete and Space. With the map locked, a click only selects.
+- A paragraph node shows its whole text, with its Markdown formatting, instead
+  of six lines and a tooltip. Its images stack inside its box instead of
+  running past its edge. Clicking the text edits its Markdown source.
+- Editing a node no longer moves its box on the screen while you type.
+- Titles and the line under them show whole, without the "…" after 40 and 60
+  characters.
+- A node whose saved position ends up under another box, because a box grew
+  or the tree around it changed, moves up or down just enough to clear it. The
+  position saved in the note does not change.
+
 ## 1.3.1
 
 - On a phone, the node you edit now stays visible above the keyboard. When the
