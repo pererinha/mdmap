@@ -50,8 +50,6 @@ export function nodeColor(index: number, depth: number): string {
     return `var(--mdmap-pick-${shade + 1}, color-mix(in srgb, ${paletteColor(index)} ${100 - whiteShare(shade)}%, white))`;
 }
 
-export const LABEL_MAX = 40;
-
 export interface MdNodeData extends Record<string, unknown> {
     title: string;
     kind?: NodeKind;
@@ -59,9 +57,7 @@ export interface MdNodeData extends Record<string, unknown> {
     preview?: string;
     /** Embed links of the node's body; the editor resolves them to thumbnails. */
     media?: string[];
-    /** Title cut to LABEL_MAX characters for the canvas; the full title goes to the tooltip and the editor. */
-    label: string;
-    /** Paragraphs: the whole text, shown as a block of at most `textLines` wrapped lines. */
+    /** Paragraphs: the whole text, shown as a block of `textLines` wrapped lines. */
     text?: string;
     /** Paragraphs: the text with its embed lines as the note has them, which editing shows. */
     source?: string;
@@ -82,15 +78,15 @@ const BORDER_X = 4;
 const NODE_HEIGHT = 36;
 const PREVIEW_HEIGHT = 14;
 const PREVIEW_CHAR_WIDTH = 6.5;
-const PREVIEW_MAX_WIDTH = 240;
 export const THUMB_WIDTH = 160;
 export const THUMB_HEIGHT = 120;
+/** Full-width media rows in paragraph nodes; matches `.mdmap-paragraph-node .mdmap-thumb`. */
+const PARAGRAPH_THUMB_HEIGHT = 160;
 const ROOT_SIZE = 84;
-/** Paragraph blocks: fixed width, 13 px text on 18 px lines, at most PARAGRAPH_MAX_LINES lines. */
+/** Paragraph blocks: fixed width, 13 px text on 18 px lines, as tall as their whole text. */
 const PARAGRAPH_WIDTH = 280;
 const PARAGRAPH_CHAR_WIDTH = 7;
 const PARAGRAPH_LINE_HEIGHT = 18;
-const PARAGRAPH_MAX_LINES = 6;
 /** Smallest horizontal gap between two depth columns. */
 const GAP_X = 60;
 /** Largest horizontal gap between two depth columns. */
@@ -105,44 +101,38 @@ function textData(node: PlainNode): Pick<MdNodeData, 'text' | 'source' | 'textLi
     return node.text === undefined ? {} : { text: node.text, source: node.source, textLines: paragraphLines(node.text) };
 }
 
-export function shortLabel(title: string): string {
-    return title.length > LABEL_MAX ? `${title.slice(0, LABEL_MAX - 1).trimEnd()}…` : title;
-}
-
-/** Wrapped lines a paragraph's text takes in its block, up to `max`. */
-export function paragraphLines(text: string, max = PARAGRAPH_MAX_LINES): number {
+/** Wrapped lines a paragraph's text takes in its block. */
+export function paragraphLines(text: string): number {
     const perLine = Math.floor((PARAGRAPH_WIDTH - PADDING_X - 2) / PARAGRAPH_CHAR_WIDTH);
-    const lines = text.split('\n').reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / perLine)), 0);
-    return Math.min(max, lines);
+    return text.split('\n').reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / perLine)), 0);
 }
 
 let measureContext: CanvasRenderingContext2D | null | undefined;
 
-/** Width of a label in the node font, measured on a canvas; CHAR_WIDTH per character where there is no DOM, as in the unit tests. */
-function labelWidth(label: string, weight: number): number {
+/** Width of a label in the node font, measured on a canvas; `charWidth` per character where there is no DOM, as in the unit tests. */
+function labelWidth(label: string, weight: number, size = 14, charWidth = CHAR_WIDTH): number {
     if (measureContext === undefined) {
         measureContext = typeof document === 'undefined' ? null : createEl('canvas').getContext('2d');
     }
     if (!measureContext) {
-        return label.length * CHAR_WIDTH;
+        return label.length * charWidth;
     }
-    measureContext.font = `${weight} 14px ${getComputedStyle(document.body).getPropertyValue('--font-interface')}`;
+    measureContext.font = `${weight} ${size}px ${getComputedStyle(document.body).getPropertyValue('--font-interface')}`;
     return measureContext.measureText(label).width;
 }
 
-/** Estimated box size before the node is measured. `whole`: the node is being edited and shows its whole title or text. */
-export function estimateSize(title: string, depth: number, preview?: string, media?: string[], text?: string, whole = false): { width: number; height: number } {
+/** Estimated box size before the node is measured: the whole title on one line, or a paragraph's whole text. */
+export function estimateSize(title: string, depth: number, preview?: string, media?: string[], text?: string): { width: number; height: number } {
     if (text !== undefined) {
-        const mediaHeight = media && media.length > 0 ? THUMB_HEIGHT + 6 : 0;
-        return { width: PARAGRAPH_WIDTH, height: paragraphLines(text, whole ? Infinity : PARAGRAPH_MAX_LINES) * PARAGRAPH_LINE_HEIGHT + 14 + mediaHeight };
+        const mediaHeight = (media?.length ?? 0) * (PARAGRAPH_THUMB_HEIGHT + 6);
+        return { width: PARAGRAPH_WIDTH, height: paragraphLines(text) * PARAGRAPH_LINE_HEIGHT + 14 + mediaHeight };
     }
-    const label = whole ? title : shortLabel(title);
     if (depth === 0) {
         // One line of semibold text in an ellipse as tall as `.mdmap-root-node`'s min-height.
-        return { width: Math.max(ROOT_SIZE, Math.ceil(labelWidth(label, 600) + PADDING_X + BORDER_X)), height: ROOT_SIZE };
+        return { width: Math.max(ROOT_SIZE, Math.ceil(labelWidth(title, 600) + PADDING_X + BORDER_X)), height: ROOT_SIZE };
     }
-    const titleWidth = Math.ceil(labelWidth(label, 400) + PADDING_X + BORDER_X);
-    const previewWidth = preview ? Math.min(PREVIEW_MAX_WIDTH, Math.round(preview.length * PREVIEW_CHAR_WIDTH + PADDING_X)) : 0;
+    const titleWidth = Math.ceil(labelWidth(title, 400) + PADDING_X + BORDER_X);
+    const previewWidth = preview ? Math.ceil(labelWidth(preview, 400, 11, PREVIEW_CHAR_WIDTH) + PADDING_X + BORDER_X) : 0;
     const mediaHeight = media && media.length > 0 ? THUMB_HEIGHT + 6 : 0;
     const mediaWidth = media && media.length > 0 ? Math.min(media.length, 2) * (THUMB_WIDTH + 6) + PADDING_X : 0;
     return {
@@ -176,12 +166,11 @@ function branchEdge(parent: PlainNode, node: PlainNode, color: string, facing: F
 }
 
 /**
- * Height of the block a subtree needs: its children stacked with GAP_Y, or the node itself if taller. `resting`
- * sizes a node being edited as when it is not, without its whole text.
+ * Height of the block a subtree needs: its children stacked with GAP_Y, or the node itself if taller.
  */
-function blockHeights(node: PlainNode, depth: number, heights: Map<string, number>, resting = false): number {
-    const own = estimateSize(node.title, depth, node.preview, node.media, node.text, node.editing && !resting).height;
-    const stacked = node.children.reduce((sum, child, index) => sum + blockHeights(child, depth + 1, heights, resting) + (index > 0 ? GAP_Y : 0), 0);
+function blockHeights(node: PlainNode, depth: number, heights: Map<string, number>): number {
+    const own = estimateSize(node.title, depth, node.preview, node.media, node.text).height;
+    const stacked = node.children.reduce((sum, child, index) => sum + blockHeights(child, depth + 1, heights) + (index > 0 ? GAP_Y : 0), 0);
     const height = Math.max(own, stacked);
     heights.set(node.id, height);
     return height;
@@ -208,7 +197,7 @@ function layoutSide(root: PlainNode, branches: Branch[], side: Side, heights: Ma
     /** Places the subtree in the block that starts at `top` and returns the node's centre y. */
     const place = (node: PlainNode, depth: number, branch: number, parent: PlainNode, top: number): number => {
         const color = nodeColor(branch, depth);
-        const size = estimateSize(node.title, depth, node.preview, node.media, node.text, node.editing);
+        const size = estimateSize(node.title, depth, node.preview, node.media, node.text);
         const block = heights.get(node.id)!;
         let centerY = top + block / 2;
         if (node.children.length > 0) {
@@ -255,7 +244,7 @@ function layoutSide(root: PlainNode, branches: Branch[], side: Side, heights: Ma
             id: node.id,
             type: NODE_TYPE,
             position: { x: side === 'right' ? columnX[depth] : -(columnX[depth] + size.width), y: centerY - size.height / 2 },
-            data: { title: node.title, label: shortLabel(node.title), ...textData(node), kind: node.kind, preview: node.preview, media: node.media, depth, side, color },
+            data: { title: node.title, ...textData(node), kind: node.kind, preview: node.preview, media: node.media, depth, side, color },
             ...size,
         });
         edges.push(branchEdge(parent, node, color, side));
@@ -381,13 +370,12 @@ function layoutTidy(root: PlainNode, layout: 'center' | 'right', whole: PlainNod
     const branches: Branch[] = root.children.map((node, index) => ({ node, index }));
     const heights = new Map<string, number>();
     branches.forEach(branch => blockHeights(branch.node, 1, heights));
-    // Balanced on the whole tree with every box at its resting size, so neither collapsing a branch nor editing a
-    // node, which shows its whole text, sends branches to the other side.
+    // Balanced on the whole tree, so collapsing a branch does not send branches to the other side.
     const wholeHeights = new Map<string, number>();
-    whole.children.forEach(node => blockHeights(node, 1, wholeHeights, true));
+    whole.children.forEach(node => blockHeights(node, 1, wholeHeights));
     const { right, left } = layout === 'right' ? { right: branches, left: [] } : balanceSides(branches, wholeHeights);
 
-    const rootSize = estimateSize(root.title, 0, undefined, undefined, undefined, root.editing);
+    const rootSize = estimateSize(root.title, 0);
     const sides = [
         { side: 'right' as Side, laid: layoutSide(root, right, 'right', heights) },
         { side: 'left' as Side, laid: layoutSide(root, left, 'left', heights) },
@@ -398,7 +386,7 @@ function layoutTidy(root: PlainNode, layout: 'center' | 'right', whole: PlainNod
             id: root.id,
             type: NODE_TYPE,
             position: { x: -rootSize.width / 2, y: -rootSize.height / 2 },
-            data: { title: root.title, label: shortLabel(root.title), kind: root.kind, preview: root.preview, depth: 0 },
+            data: { title: root.title, kind: root.kind, preview: root.preview, depth: 0 },
             ...rootSize,
         },
     ];
@@ -430,7 +418,7 @@ function layoutRadial(root: PlainNode): { nodes: MdFlowNode[]; edges: Edge[] } {
     /** `branch` is the position of the top-level branch the node belongs to. */
     const collect = (node: PlainNode, depth: number, branch: number, parent?: PlainNode) => {
         const color = depth === 0 ? '' : nodeColor(branch, depth);
-        const item: Item = { node, depth, color, parent, size: estimateSize(node.title, depth, node.preview, node.media, node.text, node.editing), angle: 0 };
+        const item: Item = { node, depth, color, parent, size: estimateSize(node.title, depth, node.preview, node.media, node.text), angle: 0 };
         items.set(node.id, item);
         node.children.forEach((child, index) => collect(child, depth + 1, depth === 0 ? index : branch, node));
     };
@@ -511,7 +499,7 @@ function layoutRadial(root: PlainNode): { nodes: MdFlowNode[]; edges: Edge[] } {
                 id: node.id,
                 type: NODE_TYPE,
                 position: { x: -size.width / 2, y: -size.height / 2 },
-                data: { title: node.title, label: shortLabel(node.title), kind: node.kind, preview: node.preview, depth: 0 },
+                data: { title: node.title, kind: node.kind, preview: node.preview, depth: 0 },
                 ...size,
             });
             return;
@@ -522,7 +510,7 @@ function layoutRadial(root: PlainNode): { nodes: MdFlowNode[]; edges: Edge[] } {
             id: node.id,
             type: NODE_TYPE,
             position: { x: r * Math.cos(angle) - size.width / 2, y: r * Math.sin(angle) - size.height / 2 },
-            data: { title: node.title, label: shortLabel(node.title), ...textData(node), kind: node.kind, preview: node.preview, media: node.media, depth, side, color },
+            data: { title: node.title, ...textData(node), kind: node.kind, preview: node.preview, media: node.media, depth, side, color },
             ...size,
         });
         // The edge leaves the parent on the side that faces the child, so it curves along the

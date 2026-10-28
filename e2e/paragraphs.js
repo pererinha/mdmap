@@ -97,7 +97,7 @@ async function showParagraphs(page) {
   })()`);
   console.log('top-level nodes:', JSON.stringify(shape.kinds));
   console.log('children of "Regras das falas:":', JSON.stringify(shape.rulesChildren), '| two rules:', shape.rulesChildren.length === 2 && shape.rulesChildren.every(k => k.startsWith('list')));
-  console.log('paragraph blocks:', JSON.stringify(shape.blocks), '| text inside every box:', shape.blocks.every(b => b.inside), '| long one clamped:', shape.blocks.some(b => b.clamped));
+  console.log('paragraph blocks:', JSON.stringify(shape.blocks), '| text inside every box:', shape.blocks.every(b => b.inside), '| every block shows its whole text:', !shape.blocks.some(b => b.clamped));
   console.log('overlapping nodes:', shape.overlaps);
   console.log('the long paragraph and "Narrador e mascote" are one block:', shape.joined === true);
   console.log(await shot(page, 'paragraphs-01-open'));

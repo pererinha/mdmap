@@ -113,7 +113,6 @@ export interface ParseOptions {
 const HEADING_RE = /^(#{1,6})(?:\s+(.*))?$/;
 const LIST_ITEM_RE = /^(\s*)([-*+]|\d+[.)])\s(.*)$/;
 const FENCE_RE = /^(```|~~~)/;
-const PREVIEW_MAX = 60;
 const EMBED_RE = /!\[\[([^\]|#]+)(?:[#|][^\]]*)?\]\]|!\[[^\]]*\]\(([^)\s]+)[^)]*\)/g;
 
 let idCounter = 0;
@@ -528,15 +527,14 @@ export function mapRoot(tree: MdTree, fallbackTitle: string): PlainNode {
 }
 
 export function toPlain(node: MdNode): PlainNode {
-    const media = mediaLinks(node.body);
+    const media = mediaLinks(node.kind === 'paragraph' ? [node.title, ...node.body] : node.body);
     const firstLine = node.body.find(line => line.trim() !== '' && mediaLinks([line]).length === 0)?.trim();
-    const preview = firstLine && firstLine.length > PREVIEW_MAX ? `${firstLine.slice(0, PREVIEW_MAX - 1).trimEnd()}…` : firstLine;
     const paragraph = node.kind === 'paragraph';
     return {
         id: node.id,
         title: node.title,
         kind: node.kind,
-        preview: paragraph ? undefined : preview,
+        preview: paragraph ? undefined : firstLine,
         media: media.length > 0 ? media : undefined,
         text: paragraph ? paragraphText(node) : undefined,
         source: paragraph ? paragraphSource(node) : undefined,

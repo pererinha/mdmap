@@ -346,6 +346,15 @@ describe('md-tree paragraphs', () => {
         expect(block.media).to.deep.equal(['shot.png']);
     });
 
+    it('includes an image written inside the first paragraph line in its previews without changing its source', () => {
+        const note = '# Notas\n\nInline **media** ![[shot.png]] and more.\n';
+        const tree = parseMarkdown(note);
+        const block = mapRoot(tree, 'f').children[0];
+        expect(block.media).to.deep.equal(['shot.png']);
+        expect(block.source).to.equal('Inline **media** ![[shot.png]] and more.');
+        expect(serializeMarkdown(tree)).to.equal(note);
+    });
+
     it('editing a paragraph keeps its embed, and removing the embed line removes the image from the note', () => {
         expect(editFirstBlock('mdmap turns a note into a mind map.\n![[shot.png]]\nSecond paragraph.', SHOT)).to.equal(SHOT.replace('into a map.', 'into a mind map.'));
         const out = editFirstBlock('mdmap turns a note into a map.\nSecond paragraph.', SHOT);

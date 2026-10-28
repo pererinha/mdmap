@@ -82,8 +82,22 @@
     font-size: 11px;
     line-height: 14px;
     color: var(--text-muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
+}
+.mdmap-rendered {
+    display: block;
+    white-space: normal;
+}
+.mdmap-rendered p {
+    margin: 0;
+}
+.mdmap-rendered code {
+    font-size: 1em;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.mdmap-rendered img,
+.mdmap-rendered video {
+    max-width: 100%;
 }
 .mdmap-media {
     display: flex;
@@ -96,6 +110,22 @@
     border-radius: 4px;
     display: block;
     cursor: pointer;
+}
+/* Paragraph media stack within the text column instead of being cut off in one long row. */
+.mdmap-paragraph-node .mdmap-media {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+}
+.mdmap-paragraph-node .mdmap-thumb {
+    width: 100%;
+    max-width: 100%;
+    height: 160px;
+    max-height: 160px;
+    object-fit: contain;
+    background: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    box-sizing: border-box;
 }
 .mdmap-node.mdmap-selected {
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--mdmap-branch) 45%, transparent);

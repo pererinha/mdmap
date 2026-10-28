@@ -69,6 +69,8 @@ interface MapEditorProps {
     /** Turns an embed link into something the node can show; null hides it. */
     resolveMedia?: (link: string) => ResolvedMedia | null;
     onOpenMedia?: (link: string) => void;
+    /** Renders paragraph Markdown using the host's renderer; returns its cleanup. */
+    renderText?: (text: string, el: HTMLElement) => () => void;
     /** A click on a node, or null for a click on empty canvas. */
     onClickNode?: (id: string | null) => void;
     /** The copy button on a node: the node and everything under it as Markdown. */
@@ -84,6 +86,7 @@ interface MapEditorProps {
 
 interface EditorNodeData extends MdNodeData {
     editing: boolean;
+    renderText?: MapEditorProps['renderText'];
     /** The node contains the search text. */
     matched?: boolean;
     resolved: Array<ResolvedMedia & { link: string }>;
@@ -149,8 +152,14 @@ function placeCaret(el: HTMLElement, point: XY | undefined) {
 
 function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
     const paragraph = data.text !== undefined;
-    // Editing happens in the label itself, so the text keeps its font, wrapping and box.
+    // Editing replaces the preview with Markdown source inside the same anchored box.
     const editRef = useRef<HTMLSpanElement>(null);
+    const previewRef = useRef<HTMLDivElement>(null);
+    useLayoutEffect(() => {
+        const el = previewRef.current;
+        if (!el || data.editing || !data.renderText || data.text === undefined) return;
+        return data.renderText(data.text, el);
+    }, [data.text, data.editing, data.renderText]);
     const original = useRef('');
     const finished = useRef(false);
     useLayoutEffect(() => {
@@ -197,7 +206,7 @@ function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
     ));
     return (
         <>
-        <div className={classes} style={style} title={data.editing ? undefined : data.text ?? data.title}>
+        <div className={classes} style={style}>
             {handles}
             {data.depth > 0 && !data.editing && (
                 // On the side the edge from the parent comes in; dragged onto another node, it moves this node under that one.
@@ -250,11 +259,11 @@ function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
                     onBlur={e => finish(e.currentTarget)}
                 />
             ) : paragraph ? (
-                <span key="label" className="mdmap-text" style={{ WebkitLineClamp: data.textLines }}>
-                    {data.text}
-                </span>
+                <div key="label" ref={previewRef} className={`mdmap-text${data.renderText ? ' mdmap-rendered' : ''}`}>
+                    {data.renderText ? null : data.text}
+                </div>
             ) : (
-                <span key="label" className="mdmap-title">{data.label}</span>
+                <span key="label" className="mdmap-title">{data.title}</span>
             )}
             {data.preview && data.depth > 0 && <span className="mdmap-preview">{data.preview}</span>}
             {data.resolved.length > 0 && (
@@ -319,7 +328,7 @@ const ORGANIZERS: Array<{ layout: Layout; label: string; icon: string }> = [
     { layout: 'radial', label: t('radial'), icon: 'orbit' },
 ];
 
-function Editor({ root: initialRoot, positions: initialPositions, onChange, onReady, resolveMedia, onOpenMedia, onClickNode, onCopyNode, collapsed: initialCollapsed, onCollapse, settings, settingsActions }: MapEditorProps) {
+function Editor({ root: initialRoot, positions: initialPositions, onChange, onReady, resolveMedia, renderText, onOpenMedia, onClickNode, onCopyNode, collapsed: initialCollapsed, onCollapse, settings, settingsActions }: MapEditorProps) {
     const flow = useReactFlow<EditorNode>();
     const rootRef = useRef(initialRoot);
     const positionsRef = useRef<Record<string, XY>>(initialPositions ?? {});
@@ -370,6 +379,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                         data: {
                             ...node.data,
                             editing: false,
+                            renderText,
                             onEditInput,
                             onCommit,
                             onCancel,
@@ -387,7 +397,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 edges: laid.edges,
             };
         },
-        [resolveMedia, onOpenMedia, onCopyNode],
+        [resolveMedia, renderText, onOpenMedia, onCopyNode],
     );
 
     const render = useCallback(

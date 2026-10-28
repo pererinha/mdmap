@@ -1,4 +1,4 @@
-import { ItemView, MarkdownView, Notice, Scope, TFile, ViewStateResult, WorkspaceLeaf } from 'obsidian';
+import { Component, MarkdownRenderer, ItemView, MarkdownView, Notice, Scope, TFile, ViewStateResult, WorkspaceLeaf } from 'obsidian';
 import { createRoot, Root } from 'react-dom/client';
 import { EditorSync, whenSized } from './editor-sync';
 import { FoldedLine, noteFolds, setNoteFolds } from './fold-sync';
@@ -134,6 +134,7 @@ export default class EditorView extends ItemView {
                 onChange={(next: PlainNode, source: string, positions: Record<string, XY>) => void this.commit(next, source, positions)}
                 onReady={handle => (this.editor = handle)}
                 resolveMedia={link => this.resolveMedia(link)}
+                renderText={(text, el) => this.renderText(text, el)}
                 onOpenMedia={link => void this.app.workspace.openLinkText(link, this.filePath, true)}
                 onClickNode={id => this.reveal(id)}
                 onCopyNode={id => void this.copyNode(id)}
@@ -144,6 +145,25 @@ export default class EditorView extends ItemView {
             />,
         );
         this.sync.watch();
+    }
+
+    /** Each preview owns its renderer children, which are disposed when React replaces the preview. */
+    private renderText(text: string, el: HTMLElement): () => void {
+        const component = new Component();
+        this.addChild(component);
+        const target = el.createDiv();
+        let disposed = false;
+        void MarkdownRenderer.render(this.app, text, target, this.filePath, component).then(() => {
+            // Media already have their own previews below the text, including embeds written inside a sentence.
+            target.querySelectorAll('.media-embed, img, video').forEach(media => media.remove());
+        }).catch(() => {
+            if (!disposed) target.setText(text);
+        });
+        return () => {
+            disposed = true;
+            this.removeChild(component);
+            target.remove();
+        };
     }
 
     private parseOptions(): ParseOptions {
