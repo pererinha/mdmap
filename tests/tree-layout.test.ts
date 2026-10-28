@@ -103,6 +103,15 @@ describe('tree-layout', () => {
         expect(canvas.get(artigos.id)).to.deep.equal({ x: canvas.get(pesquisa.id)!.x + 40, y: canvas.get(pesquisa.id)!.y + 80 });
     });
 
+    it('a saved position under another box moves its node just clear of it, keeping its x', () => {
+        const under = layoutTree(root, 'center').nodes.find(n => n.id === referencias.id)!.position;
+        const { nodes } = layoutTree(root, 'center', { [artigos.id]: under });
+        expect(overlapping(boxes(nodes))).to.deep.equal([]);
+        const moved = nodes.find(n => n.id === artigos.id)!.position;
+        expect(moved.x).to.equal(under.x);
+        expect(Math.abs(moved.y - under.y)).to.equal(nodes.find(n => n.id === referencias.id)!.height! + GAP_Y);
+    });
+
     it('an override on the root is ignored', () => {
         expect(layoutTree(root, 'center', { [root.id]: { x: 999, y: 999 } })).to.deep.equal(layoutTree(root, 'center'));
     });

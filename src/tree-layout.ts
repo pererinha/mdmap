@@ -265,8 +265,8 @@ function layoutSide(root: PlainNode, branches: Branch[], side: Side, heights: Ma
 
 /**
  * Positions for the tree in the given layout. Nodes listed in `overrides` keep
- * the offset from their parent that the user gave them; the root is never
- * overridden. The nodes in `collapsed` are laid out without their children.
+ * the offset from their parent that the user gave them, moved only as far as
+ * it takes to clear the other boxes; the root is never overridden. The nodes in `collapsed` are laid out without their children.
  * The root comes first and every parent precedes its children, as React Flow
  * requires for `parentId`.
  */
@@ -291,7 +291,64 @@ export function layoutTree(
         plain.children.forEach(child => visit(child, node));
     };
     visit(root);
+    clearSaved(nodes, overrides);
     return { nodes, edges: laid.edges };
+}
+
+/** Canvas boxes of the nodes, which come parent first. */
+function canvasBoxes(nodes: MdFlowNode[]): Map<string, { x: number; y: number; width: number; height: number }> {
+    const boxes = new Map<string, { x: number; y: number; width: number; height: number }>();
+    for (const node of nodes) {
+        const parent = node.parentId ? boxes.get(node.parentId) : undefined;
+        boxes.set(node.id, { x: (parent?.x ?? 0) + node.position.x, y: (parent?.y ?? 0) + node.position.y, width: node.width ?? 0, height: node.height ?? 0 });
+    }
+    return boxes;
+}
+
+/**
+ * A saved position can end up under another box, when a box grows or the tree around it moves: such a node moves,
+ * with its subtree, up or down, whichever is shorter, until none of its boxes overlaps another. The saved position
+ * itself stays as the user gave it.
+ */
+function clearSaved(nodes: MdFlowNode[], overrides: Record<string, XY>): void {
+    for (const node of nodes) {
+        if (!node.parentId || !overrides[node.id]) {
+            continue;
+        }
+        const boxes = canvasBoxes(nodes);
+        const inside = new Set([node.id]);
+        for (const other of nodes) {
+            if (other.parentId && inside.has(other.parentId)) {
+                inside.add(other.id);
+            }
+        }
+        const own = [...inside].map(id => boxes.get(id));
+        const others = [...boxes].filter(([id]) => !inside.has(id)).map(([, box]) => box);
+        /** How far the subtree has to go in that direction, past each box it meets on the way, to overlap none. */
+        const shift = (down: boolean): number => {
+            let dy = 0;
+            for (;;) {
+                let next = dy;
+                for (const a of own) {
+                    for (const b of others) {
+                        if (a.x < b.x + b.width && b.x < a.x + a.width && a.y + dy < b.y + b.height && b.y < a.y + dy + a.height) {
+                            next = down ? Math.max(next, b.y + b.height + GAP_Y - a.y) : Math.min(next, b.y - GAP_Y - a.y - a.height);
+                        }
+                    }
+                }
+                if (next === dy) {
+                    return dy;
+                }
+                dy = next;
+            }
+        };
+        const down = shift(true);
+        const up = down === 0 ? 0 : shift(false);
+        const dy = -up < down ? up : down;
+        if (dy !== 0) {
+            node.position = { x: node.position.x, y: node.position.y + dy };
+        }
+    }
 }
 
 /**
