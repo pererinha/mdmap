@@ -61,19 +61,24 @@ async function rect(page, title) {
     return { x: r.x + r.width / 2, y: r.y + r.height / 2, w: r.width, h: r.height };
   }, title);
 }
+/**
+ * Selects the node. The click also edits it, unless the map is locked: Escape then ends the edit and leaves the node
+ * selected. Without an edit Escape is not pressed, as React Flow unselects a focused node on Escape.
+ */
 async function clickNode(page, title) {
   const r = await rect(page, title);
   if (!r) throw new Error('node not found: ' + title);
   await page.mouse.click(r.x, r.y);
   await sleep(250);
+  if (await page.evaluate(() => !!document.querySelector('.mdmap-editable'))) {
+    await page.keyboard.press('Escape');
+    await sleep(150);
+  }
   return r;
 }
-/** Double-click as two separate clicks; a single click({clickCount: 2}) does not reach React Flow. */
-async function dblClick(page, r) {
-  await page.mouse.move(r.x, r.y);
-  await page.mouse.down({ clickCount: 1 }); await page.mouse.up({ clickCount: 1 });
-  await sleep(80);
-  await page.mouse.down({ clickCount: 2 }); await page.mouse.up({ clickCount: 2 });
+/** A click at the point, which edits the node there with the caret under it. */
+async function clickAt(page, r) {
+  await page.mouse.click(r.x, r.y);
   await sleep(400);
 }
 async function drag(page, from, to) {
@@ -101,4 +106,4 @@ async function report(ctx, name) {
 const view = () => app.workspace.getLeavesOfType('mdmap')[0].view;
 const CANAL = '# Canal\n\n## Pesquisa\n\n### Referências\n### Artigos\n\n## Roteiro\n\n### Introdução\n### Desenvolvimento\n';
 
-module.exports = { connect, shot, md, sleep, resetVault, reloadPlugin, openEditor, rect, clickNode, dblClick, drag, report, view, CANAL };
+module.exports = { connect, shot, md, sleep, resetVault, reloadPlugin, openEditor, rect, clickNode, clickAt, drag, report, view, CANAL };

@@ -1,5 +1,5 @@
 // Editing protocol against Canal.md: rename, child, sibling, delete, reorder, move, undo/redo, external edit.
-const { connect, md, sleep, resetVault, reloadPlugin, openEditor, rect, clickNode, dblClick, drag, report, CANAL } = require('./lib');
+const { connect, md, sleep, resetVault, reloadPlugin, openEditor, rect, clickNode, clickAt, drag, report, CANAL } = require('./lib');
 
 async function typeText(page, text) { await page.keyboard.type(text, { delay: 20 }); }
 async function selectedTitles(page) {
@@ -17,7 +17,7 @@ async function selectedTitles(page) {
 
   // 1. rename
   const r1 = await clickNode(page, 'Introdução');
-  await dblClick(page, r1);
+  await clickAt(page, r1);
   await page.keyboard.down('Meta'); await page.keyboard.press('a', { commands: ['SelectAll'] }); await page.keyboard.up('Meta'); // over CDP, macOS needs the editing command
   await typeText(page, 'Abertura');
   await page.keyboard.press('Escape'); // ends the edit and keeps the text

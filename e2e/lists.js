@@ -1,5 +1,5 @@
 // List items as nodes: rename an item, add a sibling item, a nested item, and a heading child.
-const { connect, sleep, resetVault, reloadPlugin, openEditor, clickNode, dblClick, report, view } = require('./lib');
+const { connect, sleep, resetVault, reloadPlugin, openEditor, clickNode, clickAt, report, view } = require('./lib');
 
 const CANAL_LISTS = '# Canal\n\n## Pesquisa\nnotas da pesquisa\n- Referências\n- Artigos\n\n## Roteiro\n\n### Introdução\n### Desenvolvimento\n';
 
@@ -15,7 +15,7 @@ const CANAL_LISTS = '# Canal\n\n## Pesquisa\nnotas da pesquisa\n- Referências\n
   await report(ctx, 'lists-00-open');
 
   // 1. rename the item "Artigos" to "Papers"
-  await dblClick(page, await clickNode(page, 'Artigos'));
+  await clickAt(page, await clickNode(page, 'Artigos'));
   await page.keyboard.down('Meta'); await page.keyboard.press('a', { commands: ['SelectAll'] }); await page.keyboard.up('Meta'); // over CDP, macOS needs the editing command
   await page.keyboard.type('Papers', { delay: 20 });
   await page.keyboard.press('Escape');

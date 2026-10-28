@@ -7,7 +7,7 @@ npx tsc --noEmit -p . || exit 1
 npm test || exit 1
 MDMAP_VAULT="$PWD/test-vault" npm run build || exit 1
 mkdir -p e2e/shots
-for s in steps lists positions story organize reveal trackpad paragraphs copy grip i18n width settings collapse folds focus search editing colors android; do
+for s in steps lists positions story organize reveal trackpad paragraphs paragraph-media copy grip i18n width settings collapse folds focus search editing colors undo-lock android; do
   node "e2e/$s.js" > "e2e/shots/$s.log" 2>&1
   echo "$s: exit $?"
 done

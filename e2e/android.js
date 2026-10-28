@@ -1,6 +1,7 @@
-// The map in the real Obsidian for Android, on an emulator: the build is installed in the app's test vault, a double tap
+// The map in the real Obsidian for Android, on an emulator: the build is installed in the app's test vault, a tap
 // edits a node, the keyboard opens and the node stays in sight above it, also a node the keyboard would cover, and
-// a tap outside writes the new title to the note. Usage: node e2e/android.js   (setup in e2e/README.md, "Android")
+// a tap outside writes the new title to the note. On the phone-wide map every button stays clear of the search field,
+// and with the lock closed a tap does not edit. Usage: node e2e/android.js   (setup in e2e/README.md, "Android")
 const puppeteer = require('puppeteer-core');
 const { execSync } = require('child_process');
 const fs = require('fs');
@@ -81,6 +82,10 @@ const inSight = e => !!e.node && e.keyboard > 0 && e.node.top >= e.pane.top && e
       await app.plugins.setEnable(true);
       await app.plugins.enablePluginAndSave('mdmap');
     }
+    // The lock starts open, as it does for a new user.
+    const plugin = app.plugins.plugins.mdmap;
+    plugin.settings.locked = false;
+    await plugin.saveSettings();
     const existing = app.vault.getAbstractFileByPath(file);
     if (existing) await app.vault.modify(existing, note); else await app.vault.create(file, note);
   }, { files, file: FILE, note: NOTE });
@@ -105,10 +110,10 @@ const inSight = e => !!e.node && e.keyboard > 0 && e.node.top >= e.pane.top && e
     return { version: app.plugins.manifests.mdmap.version, maps: maps.map(l => l.view.getState().file), nodes: maps[0]?.view.editor.instance.getNodes().length };
   }, FILE)));
 
-  // 2. a double tap on a node in the middle of the screen edits it, above the keyboard
+  // 2. a tap on a node in the middle of the screen edits it, above the keyboard
   let at = await place(page, 'Middle', 0.4);
   await sleep(500);
-  adb(`shell "input tap ${at.x} ${at.y}; input tap ${at.x} ${at.y}"`);
+  adb(`shell input tap ${at.x} ${at.y}`);
   await sleep(2500);
   let e = await editing(page);
   console.log('middle:', JSON.stringify({ node: round(e.node), pane: round(e.pane), keyboard: Math.round(e.keyboard) }), '| edited, in sight above the keyboard:', inSight(e));
@@ -119,7 +124,7 @@ const inSight = e => !!e.node && e.keyboard > 0 && e.node.top >= e.pane.top && e
   // 3. a node low on the screen, where the keyboard opens, is centred again above it
   at = await place(page, 'Low', 0.85);
   await sleep(500);
-  adb(`shell "input tap ${at.x} ${at.y}; input tap ${at.x} ${at.y}"`);
+  adb(`shell input tap ${at.x} ${at.y}`);
   await sleep(2500);
   e = await editing(page);
   console.log('low:', JSON.stringify({ node: round(e.node), pane: round(e.pane), keyboard: Math.round(e.keyboard) }), '| edited, centred above the keyboard:', inSight(e));
@@ -132,5 +137,34 @@ const inSight = e => !!e.node && e.keyboard > 0 && e.node.top >= e.pane.top && e
   await tapOutside(page);
   const saved = await page.evaluate(f => app.vault.adapter.read(f), FILE);
   console.log('typed "2", tap outside:', JSON.stringify(saved.split('\n').filter(l => l.startsWith('## Low'))), '| note has "## Low2":', saved.includes('## Low2\n'));
+  await sleep(1000); // the keyboard closes
+
+  // 5. on a phone-wide map, every button stays inside the map and clear of the search field
+  const bar = await page.evaluate(() => {
+    const r = el => { const b = el.getBoundingClientRect(); return { left: b.left, top: b.top, right: b.right, bottom: b.bottom }; };
+    const host = app.workspace.getLeavesOfType('mdmap')[0].view.containerEl;
+    return { search: r(host.querySelector('.mdmap-search')), buttons: Array.from(host.querySelectorAll('.mdmap-organize, .mdmap-settings-button, .mdmap-tool')).map(r), pane: r(host.querySelector('.react-flow')) };
+  });
+  const apart = (a, b) => a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top;
+  const inside = (a, p) => a.left >= p.left && a.right <= p.right && a.top >= p.top && a.bottom <= p.bottom;
+  console.log('buttons:', JSON.stringify({ search: round(bar.search), buttons: bar.buttons.map(round) }), '| inside the map, clear of the search field:', bar.buttons.length === 7 && bar.buttons.every(b => inside(b, bar.pane) && apart(b, bar.search)));
+  console.log(shot('android-03-buttons'));
+
+  // 6. a tap on the lock closes it and a tap on a node no longer edits; another tap on the lock opens it again
+  const lock = async () => {
+    const b = await page.evaluate(() => { const r = document.querySelector('.mdmap-tool[data-tool="lock"]').getBoundingClientRect(); return { x: Math.round((r.x + r.width / 2) * devicePixelRatio), y: Math.round((r.y + r.height / 2) * devicePixelRatio) }; });
+    adb(`shell input tap ${b.x} ${b.y}`);
+    await sleep(800);
+    return page.evaluate(() => document.querySelector('.mdmap-tool[data-tool="lock"]').getAttribute('aria-pressed') === 'true');
+  };
+  const closed = await lock();
+  at = await place(page, 'Middle', 0.4);
+  await sleep(500);
+  adb(`shell input tap ${at.x} ${at.y}`);
+  await sleep(1500);
+  const edited = await page.evaluate(() => !!document.querySelector('.mdmap-editable'));
+  console.log(shot('android-04-locked'));
+  const opened = !(await lock());
+  console.log('lock:', JSON.stringify({ closed, edited, opened }), '| locked, a tap does not edit; opens again:', closed && !edited && opened);
   browser.disconnect();
 })().catch(err => { console.error(err.message); process.exit(1); });

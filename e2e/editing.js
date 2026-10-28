@@ -1,12 +1,12 @@
-// Editing in place: a double-click makes the label itself editable, so the node keeps its box, border, font and
-// colours and only a caret appears, where the double-click landed. Typing grows the box and moves its neighbours
+// Editing in place: a click makes the label itself editable, so the node keeps its box, border, font and
+// colours and only a caret appears, where the click landed. Typing grows the box and moves its neighbours
 // without writing the note; a click outside or Escape writes it, Escape gives the keyboard back to the map, and
 // Cmd+Z undoes the edit. Enter never ends the edit: it adds a line in a paragraph and nothing in a heading. A long
 // title shows whole while edited, a paragraph block is edited whole and the table between its paragraphs stays, a
 // node added with Tab starts with its text selected, and a paragraph with an image shows its embed line as Markdown
-// while edited, with the image still under the text. In a long note, a double-clicked paragraph is edited where it
+// while edited, with the image still under the text. In a long note, a clicked paragraph is edited where it
 // was clicked: its whole text, taller than the box, does not send its branch to the other side of the root.
-const { connect, sleep, reloadPlugin, openEditor, clickNode, dblClick, md, shot } = require('./lib');
+const { connect, sleep, reloadPlugin, openEditor, clickNode, clickAt, md, shot } = require('./lib');
 
 const FILE = 'Editing-e2e.md';
 const IMAGE = 'Editing-e2e.png';
@@ -30,8 +30,15 @@ async function charPoint(page, text, offset) {
   return page.evaluate(({ text, offset }) => {
     const span = Array.from(document.querySelectorAll('.mdmap-title, .mdmap-text')).find(s => s.textContent === text || s.textContent.split('\n')[0] === text);
     const range = document.createRange();
-    range.setStart(span.firstChild, offset);
-    range.setEnd(span.firstChild, offset + 1);
+    const walker = document.createTreeWalker(span, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    while (node && offset >= node.textContent.length) {
+      offset -= node.textContent.length;
+      node = walker.nextNode();
+    }
+    if (!node) throw new Error('character not found: ' + text);
+    range.setStart(node, offset);
+    range.setEnd(node, offset + 1);
     const r = range.getBoundingClientRect();
     return { x: r.left + 1, y: r.top + r.height / 2 };
   }, { text, offset });
@@ -99,10 +106,10 @@ async function box(page, text) {
   await openEditor(page, FILE);
   ctx.drain();
 
-  // 1. the node looks the same while it is edited, and the caret lands on the double-clicked character
+  // 1. the node looks the same while it is edited, and the caret lands on the clicked character
   const before = await look(page, 'Comments');
   console.log(await shot(page, 'editing-01-before'));
-  await dblClick(page, await charPoint(page, 'Comments', 4));
+  await clickAt(page, await charPoint(page, 'Comments', 4));
   const during = await look(page, 'Comments');
   let c = await caret(page);
   console.log('same look while editing:', JSON.stringify({ before, during }), '|', JSON.stringify(before) === JSON.stringify(during));
@@ -134,7 +141,7 @@ async function box(page, text) {
   // 4. a click outside writes the note too; Cmd+Z then puts the text, the box and the note back
   const item0 = await look(page, 'Ask about the comment box');
   const note0 = note;
-  await dblClick(page, await charPoint(page, 'Ask about the comment box', 2));
+  await clickAt(page, await charPoint(page, 'Ask about the comment box', 2));
   await page.keyboard.down(MOD); await page.keyboard.press('a', { commands: ['SelectAll'] }); await page.keyboard.up(MOD);
   await page.keyboard.type('Something much longer than the item was', { delay: 10 });
   const pane = await page.evaluate(() => { const r = document.querySelector('.react-flow__pane').getBoundingClientRect(); return { x: r.right - 40, y: r.bottom - 40 }; });
@@ -148,18 +155,19 @@ async function box(page, text) {
   note = await md(page, FILE);
   console.log('Cmd+Z: text, box and note back:', JSON.stringify(item0.box) === JSON.stringify(item1.box) && note === note0);
 
-  // 5. a long title shows whole while edited, in a box that fits it
-  const cut = await page.evaluate(() => Array.from(document.querySelectorAll('.mdmap-title')).map(s => s.textContent).find(t => t.startsWith('A heading whose')));
-  await dblClick(page, await charPoint(page, cut, 3));
+  // 5. a long title shows whole, also while edited, in a box that fits it
+  const longShown = await page.evaluate(() => Array.from(document.querySelectorAll('.mdmap-title')).map(s => s.textContent).find(t => t.startsWith('A heading whose')));
+  const restLook = await look(page, LONG);
+  await clickAt(page, await charPoint(page, LONG, 3));
   c = await caret(page);
-  const longLook = await look(page, cut);
-  console.log('long title:', JSON.stringify({ cut, editing: c.text }), '| whole while edited, fits:', cut.endsWith('…') && c.text === LONG && longLook.fits);
+  const longLook = await look(page, LONG);
+  console.log('long title:', JSON.stringify({ shown: longShown, editing: c.text }), '| whole, fits before and while edited:', longShown === LONG && c.text === LONG && restLook.fits && longLook.fits);
   await page.keyboard.press('Escape');
   await sleep(400);
 
   // 6. a paragraph block is edited whole: the caret on line 2, Shift+Enter and Enter add lines, a click outside writes it
   const second = 'First line of the paragraph,\nsecond line of the paragraph.\nThird line after the table.'.indexOf('second');
-  await dblClick(page, await charPoint(page, 'First line of the paragraph,', second));
+  await clickAt(page, await charPoint(page, 'First line of the paragraph,', second));
   c = await caret(page);
   console.log('paragraph caret on "second":', JSON.stringify({ offset: c.offset, expected: second }), '|', c.inEditable && c.offset === second && c.text.split('\n').length === 3);
   console.log(await shot(page, 'editing-03-paragraph'));
@@ -198,6 +206,11 @@ async function box(page, text) {
   console.log('Tab after Escape adds a grandchild:', c.inEditable && c.selected === 'New node' && (await md(page, FILE)).includes('New node'));
 
   // 8. a paragraph with an image: the embed line shows as Markdown while edited, and the image stays under the text
+  await page.evaluate(() => {
+    const editor = app.workspace.getLeavesOfType('mdmap')[0].view.editor;
+    editor.focus(editor.instance.getNodes().find(n => n.data.title === 'A paragraph with a picture.').id);
+  });
+  await sleep(500);
   const picture = async () => page.evaluate(() => {
     const node = (document.querySelector('.mdmap-editable') ?? Array.from(document.querySelectorAll('.mdmap-text')).find(s => s.textContent.startsWith('A paragraph with'))).closest('.mdmap-node');
     const img = node.querySelector('img.mdmap-thumb');
@@ -205,7 +218,7 @@ async function box(page, text) {
     return { image: !!img && img.complete && img.naturalWidth > 0, below: !!img && img.getBoundingClientRect().top >= text.getBoundingClientRect().bottom - 1, text: text.textContent };
   });
   const shown = await picture();
-  await dblClick(page, await charPoint(page, 'A paragraph with a picture.', 2));
+  await clickAt(page, await charPoint(page, 'A paragraph with a picture.', 2));
   const editingPicture = await picture();
   console.log('picture while edited:', JSON.stringify({ shown, editingPicture }), '| embed line as Markdown, image still under the text:',
     shown.image && shown.text === 'A paragraph with a picture.' && editingPicture.image && editingPicture.below && editingPicture.text === `A paragraph with a picture.\n![[${IMAGE}]]`);
@@ -217,7 +230,7 @@ async function box(page, text) {
   note = await md(page, FILE);
   console.log('picture paragraph written, embed kept:', note.includes(`A paragraph with a picture. Nice.\n![[${IMAGE}]]\n`));
   // deleting the embed line hides the image at once; Escape writes that, and Cmd+Z brings both back
-  await dblClick(page, await charPoint(page, 'A paragraph with a picture. Nice.', 2));
+  await clickAt(page, await charPoint(page, 'A paragraph with a picture. Nice.', 2));
   await page.evaluate(() => {
     const el = document.querySelector('.mdmap-editable');
     const text = el.firstChild;
@@ -240,7 +253,7 @@ async function box(page, text) {
     await app.vault.delete(app.vault.getAbstractFileByPath(image));
   }, FILE, IMAGE);
 
-  // 9. a long note: a double-clicked paragraph, on either side of the root, is edited under the pointer and stays
+  // 9. a long note: a clicked paragraph, on either side of the root, is edited under the pointer and stays
   // edited; typing goes into it and Escape writes it
   await page.evaluate(async ({ file, content }) => {
     const existing = app.vault.getAbstractFileByPath(file);
@@ -256,7 +269,7 @@ async function box(page, text) {
       return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, x: r.x + r.width / 2, y: r.y + r.height / 2 };
     }, section);
     const before = await box();
-    await dblClick(page, before);
+    await clickAt(page, before);
     await sleep(1000);
     const after = await box();
     const editing = await page.evaluate(() => { const el = document.querySelector('.mdmap-editable'); return !!el && document.activeElement === el; });

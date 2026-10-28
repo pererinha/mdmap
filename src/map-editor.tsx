@@ -5,7 +5,7 @@
  * every node to the new layout and the viewport to its bounds. On a trackpad,
  * two-finger scrolling moves the map as far as the fingers move, like a web
  * page, and pinching zooms. Keys:
- * double-click edits the text in place until a click outside or Escape, Tab adds a child, Enter adds a sibling, Delete removes,
+ * a click edits the text in place until a click outside or Escape, then Tab adds a child, Enter adds a sibling, Delete removes,
  * Alt+Up/Down reorders, dropping a node or the grip on its incoming side onto another node reparents,
  * Cmd+Z / Cmd+Shift+Z and the buttons under the layout buttons undo and redo, also a dragged position or a layout.
  * The lock next to them keeps the map from changing the note: no editing, dragging, layouts or undo while it is
@@ -87,12 +87,13 @@ interface MapEditorProps {
 interface EditorNodeData extends MdNodeData {
     editing: boolean;
     renderText?: MapEditorProps['renderText'];
+    editOffset?: number;
     /** The node contains the search text. */
     matched?: boolean;
     resolved: Array<ResolvedMedia & { link: string }>;
     onOpenMedia?(link: string): void;
     onCopy?(id: string): void;
-    /** Where the double-click that started editing landed, for the caret. */
+    /** Where the click that started editing landed, for the caret. */
     editPoint?: XY;
     /** The text being typed, so the layout can follow it. */
     onEditInput(id: string, text: string): void;
@@ -137,10 +138,13 @@ function editedText(el: HTMLElement, paragraph: boolean): string {
 }
 
 /** Puts the caret where the screen point falls on the element's text, or selects all of it. */
-function placeCaret(el: HTMLElement, point: XY | undefined) {
+function placeCaret(el: HTMLElement, point: XY | undefined, offset?: number) {
     const range = document.createRange();
     const at = point ? document.caretPositionFromPoint(point.x, point.y) : null;
-    if (at && el.contains(at.offsetNode)) {
+    if (offset !== undefined && el.firstChild) {
+        range.setStart(el.firstChild, Math.min(offset, el.firstChild.textContent?.length ?? 0));
+        range.collapse(true);
+    } else if (at && el.contains(at.offsetNode)) {
         range.setStart(at.offsetNode, at.offset);
     } else {
         range.selectNodeContents(el);
@@ -148,6 +152,33 @@ function placeCaret(el: HTMLElement, point: XY | undefined) {
     const selection = window.getSelection();
     selection?.removeAllRanges();
     selection?.addRange(range);
+}
+
+/** Map the clicked rendered text back to Markdown before the preview is replaced by its source. */
+function paragraphOffset(el: HTMLElement, point: XY, text: string, source: string): number | undefined {
+    const at = document.caretPositionFromPoint(point.x, point.y);
+    if (!at || !el.contains(at.offsetNode)) return;
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let cursor = 0;
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const value = node.textContent ?? '';
+        const index = text.indexOf(value, cursor);
+        if (index < 0) continue;
+        if (node === at.offsetNode) {
+            const offset = index + at.offset;
+            let displayStart = 0;
+            let sourceStart = 0;
+            for (const line of text.split('\n')) {
+                const found = source.indexOf(line, sourceStart);
+                if (found < 0) return;
+                if (offset <= displayStart + line.length) return found + offset - displayStart;
+                displayStart += line.length + 1;
+                sourceStart = found + line.length + 1;
+            }
+            return;
+        }
+        cursor = index + value.length;
+    }
 }
 
 function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
@@ -172,7 +203,7 @@ function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
         finished.current = false;
         el.textContent = original.current;
         el.focus();
-        placeCaret(el, data.editPoint);
+        placeCaret(el, data.editPoint, data.editOffset);
     }, [data.editing]);
     // A click outside or Escape ends the edit and keeps the text; Escape's own blur then comes second and is ignored.
     const finish = (el: HTMLElement) => {
@@ -225,7 +256,6 @@ function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
                         e.stopPropagation();
                         data.onToggle(id);
                     }}
-                    onDoubleClick={e => e.stopPropagation()}
                 >
                     {data.fold.collapsed ? data.fold.hidden : null}
                 </Handle>
@@ -270,7 +300,8 @@ function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
                 <span className="mdmap-media">
                     {data.resolved.map(item =>
                         item.kind === 'video' ? (
-                            <video key={item.link} className="mdmap-thumb" src={item.src} controls preload="metadata" />
+                            // A click on the player's controls plays the video and leaves the node as it is.
+                            <video key={item.link} className="mdmap-thumb" src={item.src} controls preload="metadata" onClick={e => e.stopPropagation()} />
                         ) : (
                             <img
                                 key={item.link}
@@ -297,7 +328,6 @@ function MdNode({ id, data, selected }: NodeProps<EditorNode>) {
                     e.stopPropagation();
                     data.onCopy!(id);
                 }}
-                onDoubleClick={e => e.stopPropagation()}
             />
         )}
         </>
@@ -342,8 +372,9 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
     const [nodes, setNodes, onNodesChange] = useNodesState<EditorNode>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [editingId, setEditingId] = useState<string | null>(null);
-    /** Where the double-click that started the current edit landed. */
+    /** Where the click that started the current edit landed. */
     const editPoint = useRef<XY | null>(null);
+    const editOffset = useRef<number | undefined>(undefined);
     const containerRef = useRef<HTMLDivElement>(null);
     const searchRef = useRef<HTMLInputElement>(null);
     const [query, setQuery] = useState('');
@@ -652,7 +683,8 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
     }, [nodes, flow]);
 
     const startEditing = useCallback(
-        (id: string, point?: XY) => {
+        (id: string, point?: XY, offset?: number) => {
+            editOffset.current = offset;
             selectedId.current = id;
             editPoint.current = point ?? null;
             const node = findNode(rootRef.current, id);
@@ -851,7 +883,7 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 ...node,
                 // The selected node, the one being dragged too, and its subtree come over the other boxes (zIndexMode="manual").
                 zIndex: node.selected ? SELECTED_Z : undefined,
-                data: { ...node.data, editing: node.id === editingId, editPoint: node.id === editingId ? editPoint.current ?? undefined : undefined, matched: matched.has(node.id) },
+                data: { ...node.data, editing: node.id === editingId, editPoint: node.id === editingId ? editPoint.current ?? undefined : undefined, editOffset: node.id === editingId ? editOffset.current : undefined, matched: matched.has(node.id) },
             })),
         [nodes, editingId, matched],
     );
@@ -865,12 +897,23 @@ function Editor({ root: initialRoot, positions: initialPositions, onChange, onRe
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onSelectionChange={onSelectionChange}
-                onNodeClick={(_event, node) => onClickNode?.(node.id)}
+                onNodeClick={(event, node) => {
+                    if ((event.target as HTMLElement).closest('.mdmap-rendered a')) return;
+                    onClickNode?.(node.id);
+                    // One click edits the node; in the node being edited it only moves the caret.
+                    if (!locked && node.id !== editingId) {
+                        const point = { x: event.clientX, y: event.clientY };
+                        const preview = event.currentTarget.querySelector<HTMLElement>('.mdmap-rendered');
+                        const offset = preview && node.data.text !== undefined
+                            ? paragraphOffset(preview, point, node.data.text, node.data.source ?? node.data.text)
+                            : undefined;
+                        startEditing(node.id, point, offset);
+                    }
+                }}
                 onPaneClick={() => {
                     setSettingsOpen(false);
                     onClickNode?.(null);
                 }}
-                onNodeDoubleClick={(event, node) => startEditing(node.id, { x: event.clientX, y: event.clientY })}
                 nodesDraggable={!locked}
                 nodesConnectable={!locked}
                 onNodeDragStart={onNodeDragStart}
