@@ -4,3 +4,6 @@ main.js
 /styles.css
 test-vault/
 e2e/shots/
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
