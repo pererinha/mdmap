@@ -34,6 +34,9 @@ is no separate mind map file.
 - **Copy a branch as Markdown**, exactly as it is written in the note.
 - **Mermaid export.** Copy the whole note as a Mermaid `mindmap` block.
 - **Images and videos** embedded in the note are shown inside their node.
+- **The map stays where you left it.** Closing an image opened from a node, or
+  resizing the window, leaves the map as it was. With *Remember map position*
+  on, the map also opens again where you left it.
 - **Undo and redo** for changes made in the map, including a node dragged to
   a new place and a layout button, with the keyboard or the buttons under the
   layout buttons.
@@ -136,7 +139,8 @@ the clipboard as a Mermaid `mindmap` block.
 ## Settings and details
 
 **Settings.** The gear next to the layout buttons in the map has *Show
-paragraphs*, *Show clicked node in the note* and the colors. *Settings →
+paragraphs*, *Show clicked node in the note*, *Remember map position* and the
+colors. *Settings →
 mdmap* has them too, and two more.
 
 - **List items and paragraphs as nodes** (on by default, only in *Settings →
@@ -148,6 +152,11 @@ mdmap* has them too, and two more.
   change. It needs *List items and paragraphs as nodes*.
 - **Show clicked node in the note** (on by default). When it is off,
   clicking a node does not show it in the note.
+- **Remember map position** (off by default). When it is on, each time the
+  map stops on a new point, the plugin saves the point at the center of the
+  view in the note, and the map opens there again, at the zoom that fits the
+  whole map. That includes the moves the map makes itself, such as a layout
+  button or jumping to a search result, so the note is saved more often.
 - **Mind map width** (50 % by default, only in *Settings → mdmap*). The
   map's share of the window, from 20 to 80 %, when it opens next to the note.
 - **Colors.** One tab for the light theme and one for the dark theme, each
@@ -165,14 +174,17 @@ map, the plugin adds a comment block at the end of the note:
 ```
 %% mindmap-positions
 Pesquisa/Artigos: -54,149
+view 312,-85
 %%
 ```
 
 Each line has the node's path (the titles from the root down, separated by
 `/`) and its x,y distance from the top-left corner of its parent, so the
-node stays next to its parent when the parent moves. Obsidian hides `%%`
-comments in reading view. The plugin deletes the block when no node has a
-saved position, for example after you click *Tidy tree*.
+node stays next to its parent when the parent moves. The `view` line, written
+only with *Remember map position* on, is the point at the center of the view
+where you left the map. Obsidian hides `%%` comments in reading view. The
+plugin deletes the block when no node has a saved position and there is no
+`view` line, for example after you click *Tidy tree* with the setting off.
 
 **Images and videos from the internet.** If an embedded image or video links
 to an `http://` or `https://` address, the plugin downloads it from that
